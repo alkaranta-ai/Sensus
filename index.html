@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Cerca — Bares, cafés y parrillas</title>
+<meta name="description" content="Encontrá bares, cafés, parrillas y restaurantes cerca tuyo usando tu ubicación GPS." />
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#141310" />
+
+<!-- iOS install support -->
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Cerca" />
+
+<link rel="icon" href="icons/icon-192.png" />
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="radar-bg" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◎</span>
+    <h1>CERCA</h1>
+  </div>
+  <p class="tagline">bares · cafés · parrillas · restós, a un radar de distancia</p>
+</header>
+
+<main>
+  <section class="controls" aria-label="Filtros de búsqueda">
+    <div class="chips" id="categoryChips" role="group" aria-label="Categorías">
+      <button class="chip" data-cat="bar" data-color="bar">
+        <span class="chip-icon">🍸</span>Bar
+      </button>
+      <button class="chip" data-cat="cafe" data-color="cafe">
+        <span class="chip-icon">☕</span>Café
+      </button>
+      <button class="chip" data-cat="parrilla" data-color="parrilla">
+        <span class="chip-icon">🔥</span>Parrilla
+      </button>
+      <button class="chip" data-cat="restaurante" data-color="resto">
+        <span class="chip-icon">🍽</span>Resto
+      </button>
+      <button class="chip" data-cat="pizza" data-color="resto">
+        <span class="chip-icon">🍕</span>Pizza
+      </button>
+      <button class="chip" data-cat="heladeria" data-color="cafe">
+        <span class="chip-icon">🍦</span>Heladería
+      </button>
+    </div>
+
+    <div class="radius-row">
+      <label for="radius">Radio de búsqueda</label>
+      <input type="range" id="radius" min="300" max="3000" step="100" value="1000" />
+      <span class="radius-value mono" id="radiusValue">1000 m</span>
+    </div>
+
+    <button id="searchBtn" class="search-btn">
+      <span class="btn-radar" aria-hidden="true"></span>
+      <span id="searchBtnLabel">Buscar cerca mío</span>
+    </button>
+  </section>
+
+  <section class="status" id="statusBox" aria-live="polite"></section>
+
+  <div class="view-toggle" id="viewToggle" hidden>
+    <button class="toggle-btn active" data-view="list">Lista</button>
+    <button class="toggle-btn" data-view="map">Mapa</button>
+  </div>
+
+  <section id="resultsView" class="results" hidden></section>
+
+  <section id="mapView" class="map-wrap" hidden>
+    <div id="map"></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <p>Datos de lugares: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</p>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
