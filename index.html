@@ -4,16 +4,16 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Cerca — Bares, cafés y parrillas</title>
-<meta name="description" content="Encontrá bares, cafés, parrillas y restaurantes cerca tuyo usando tu ubicación GPS." />
+<meta name="description" content="Encontrá bares, cafés, parrillas, farmacias, supermercados y más cerca tuyo usando tu ubicación GPS." />
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#141310" />
+<meta name="theme-color" content="#EEF3FB" />
 
 <!-- iOS install support -->
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="Cerca" />
 
 <link rel="icon" href="icons/icon-192.png" />
@@ -24,25 +24,33 @@
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<div class="radar-bg" aria-hidden="true"></div>
+<div class="mesh-bg" aria-hidden="true">
+  <span class="blob blob-a"></span>
+  <span class="blob blob-b"></span>
+  <span class="blob blob-c"></span>
+</div>
 
 <header class="topbar">
-  <div class="brand">
-    <span class="brand-mark">◎</span>
-    <h1>CERCA</h1>
+  <div class="glass-panel topbar-glass">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 19 14.6 19 9.5C19 5.36 15.64 2 11.5 2C7.36 2 4 5.36 4 9.5C4 14.6 12 21 12 21Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="9.5" r="2.6" stroke="currentColor" stroke-width="1.8"/></svg>
+      </span>
+      <h1>Cerca</h1>
+    </div>
+    <p class="tagline">bares · cafés · parrillas · farmacias y más, a un mapa de distancia</p>
   </div>
-  <p class="tagline">bares · cafés · parrillas · restós, a un radar de distancia</p>
 </header>
 
 <main>
-  <section class="controls" aria-label="Filtros de búsqueda">
-    <div class="chips" id="categoryChips" role="group" aria-label="Categorías">
+  <section class="controls glass-panel" aria-label="Filtros de búsqueda">
+    <div class="chips-scroll" id="categoryChips" role="group" aria-label="Categorías">
       <button class="chip" data-cat="bar" data-color="bar">
         <span class="chip-icon">🍸</span>Bar
       </button>
@@ -52,39 +60,52 @@
       <button class="chip" data-cat="parrilla" data-color="parrilla">
         <span class="chip-icon">🔥</span>Parrilla
       </button>
-      <button class="chip" data-cat="restaurante" data-color="resto">
+      <button class="chip" data-cat="restaurante" data-color="restaurante">
         <span class="chip-icon">🍽</span>Resto
       </button>
-      <button class="chip" data-cat="pizza" data-color="resto">
+      <button class="chip" data-cat="pizza" data-color="pizza">
         <span class="chip-icon">🍕</span>Pizza
       </button>
-      <button class="chip" data-cat="heladeria" data-color="cafe">
+      <button class="chip" data-cat="heladeria" data-color="heladeria">
         <span class="chip-icon">🍦</span>Heladería
+      </button>
+      <button class="chip" data-cat="panaderia" data-color="panaderia">
+        <span class="chip-icon">🥐</span>Panadería
+      </button>
+      <button class="chip" data-cat="farmacia" data-color="farmacia">
+        <span class="chip-icon">💊</span>Farmacia
+      </button>
+      <button class="chip" data-cat="supermercado" data-color="supermercado">
+        <span class="chip-icon">🛒</span>Súper
+      </button>
+      <button class="chip" data-cat="comida_rapida" data-color="comida_rapida">
+        <span class="chip-icon">🍔</span>Rápida
       </button>
     </div>
 
     <div class="radius-row">
-      <label for="radius">Radio de búsqueda</label>
+      <label for="radius">Radio</label>
       <input type="range" id="radius" min="300" max="3000" step="100" value="1000" />
       <span class="radius-value mono" id="radiusValue">1000 m</span>
     </div>
 
     <button id="searchBtn" class="search-btn">
-      <span class="btn-radar" aria-hidden="true"></span>
+      <span class="btn-spinner" aria-hidden="true"></span>
+      <svg class="btn-icon" width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21L16.5 16.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       <span id="searchBtnLabel">Buscar cerca mío</span>
     </button>
   </section>
 
   <section class="status" id="statusBox" aria-live="polite"></section>
 
-  <div class="view-toggle" id="viewToggle" hidden>
+  <div class="view-toggle glass-panel" id="viewToggle" hidden>
     <button class="toggle-btn active" data-view="list">Lista</button>
     <button class="toggle-btn" data-view="map">Mapa</button>
   </div>
 
   <section id="resultsView" class="results" hidden></section>
 
-  <section id="mapView" class="map-wrap" hidden>
+  <section id="mapView" class="map-wrap glass-panel" hidden>
     <div id="map"></div>
   </section>
 </main>

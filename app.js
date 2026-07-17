@@ -33,13 +33,13 @@ const CATEGORY_DEFS = {
   restaurante: {
     label: "Restaurante",
     icon: "🍽",
-    badgeClass: "resto",
+    badgeClass: "restaurante",
     filters: [`node["amenity"="restaurant"](around:RADIUS,LAT,LON);`],
   },
   pizza: {
     label: "Pizza",
     icon: "🍕",
-    badgeClass: "resto",
+    badgeClass: "pizza",
     filters: [
       `node["amenity"~"restaurant|fast_food"]["cuisine"~"pizza", i](around:RADIUS,LAT,LON);`,
     ],
@@ -47,8 +47,35 @@ const CATEGORY_DEFS = {
   heladeria: {
     label: "Heladería",
     icon: "🍦",
-    badgeClass: "cafe",
+    badgeClass: "heladeria",
     filters: [`node["amenity"="ice_cream"](around:RADIUS,LAT,LON);`],
+  },
+  panaderia: {
+    label: "Panadería",
+    icon: "🥐",
+    badgeClass: "panaderia",
+    filters: [`node["shop"="bakery"](around:RADIUS,LAT,LON);`],
+  },
+  farmacia: {
+    label: "Farmacia",
+    icon: "💊",
+    badgeClass: "farmacia",
+    filters: [`node["amenity"="pharmacy"](around:RADIUS,LAT,LON);`],
+  },
+  supermercado: {
+    label: "Súper",
+    icon: "🛒",
+    badgeClass: "supermercado",
+    filters: [
+      `node["shop"="supermarket"](around:RADIUS,LAT,LON);`,
+      `node["shop"="convenience"](around:RADIUS,LAT,LON);`,
+    ],
+  },
+  comida_rapida: {
+    label: "Rápida",
+    icon: "🍔",
+    badgeClass: "comida_rapida",
+    filters: [`node["amenity"="fast_food"](around:RADIUS,LAT,LON);`],
   },
 };
 
@@ -256,6 +283,7 @@ function buildResults(elements, cats) {
 function classify(tags, cats) {
   const cuisine = (tags.cuisine || "").toLowerCase();
   const amenity = tags.amenity;
+  const shop = tags.shop;
 
   if (cats.includes("parrilla") && amenity === "restaurant" && /steak_house|barbecue|grill|argentin/.test(cuisine)) {
     return "parrilla";
@@ -264,6 +292,10 @@ function classify(tags, cats) {
   if (amenity === "bar" || amenity === "pub") return "bar";
   if (amenity === "cafe") return "cafe";
   if (amenity === "ice_cream") return "heladeria";
+  if (shop === "bakery") return "panaderia";
+  if (amenity === "pharmacy") return "farmacia";
+  if (shop === "supermarket" || shop === "convenience") return "supermercado";
+  if (amenity === "fast_food") return "comida_rapida";
   if (amenity === "restaurant") return "restaurante";
   return "restaurante";
 }
@@ -356,7 +388,7 @@ function updateMapMarkers() {
 
   const userIcon = L.divIcon({
     className: "",
-    html: `<div style="width:16px;height:16px;border-radius:50%;background:#e8a33d;border:2px solid #141310;box-shadow:0 0 0 4px rgba(232,163,61,0.3);"></div>`,
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:#0A84FF;border:2px solid #fff;box-shadow:0 0 0 4px rgba(10,132,255,0.25);"></div>`,
     iconSize: [16, 16],
     iconAnchor: [8, 8],
   });
