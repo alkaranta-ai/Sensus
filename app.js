@@ -79,6 +79,10 @@ const CATEGORY_DEFS = {
   },
 };
 
+const HISTORY_KEY = "cerca_history_v1";
+const DARK_KEY = "cerca_dark_v1";
+const HISTORY_LIMIT = 30;
+
 const state = {
   selected: new Set(),
   radius: 1000,
@@ -88,6 +92,8 @@ const state = {
   view: "list",
   map: null,
   markersLayer: null,
+  activeTab: "inicio",
+  history: [],
 };
 
 const els = {
@@ -100,21 +106,59 @@ const els = {
   viewToggle: document.getElementById("viewToggle"),
   resultsView: document.getElementById("resultsView"),
   mapView: document.getElementById("mapView"),
+
+  dock: document.getElementById("dock"),
+  historyBadge: document.getElementById("historyBadge"),
+  viewInicio: document.getElementById("view-inicio"),
+  viewBusquedas: document.getElementById("view-busquedas"),
+  viewMenu: document.getElementById("view-menu"),
+  historyList: document.getElementById("historyList"),
+
+  menuClearHistory: document.getElementById("menuClearHistory"),
+  menuShareWhatsapp: document.getElementById("menuShareWhatsapp"),
+  menuDarkMode: document.getElementById("menuDarkMode"),
+  darkModeToggle: document.getElementById("darkModeToggle"),
+  menuAbout: document.getElementById("menuAbout"),
+  aboutOverlay: document.getElementById("aboutOverlay"),
+  aboutClose: document.getElementById("aboutClose"),
+  toast: document.getElementById("toast"),
 };
 
-// ---------- UI: chips de categoría ----------
+// ---------- UI: tarjetas de categoría ----------
 els.chips.addEventListener("click", (e) => {
-  const chip = e.target.closest(".chip");
-  if (!chip) return;
-  const cat = chip.dataset.cat;
+  const card = e.target.closest(".cat-card");
+  if (!card) return;
+  const cat = card.dataset.cat;
   if (state.selected.has(cat)) {
     state.selected.delete(cat);
-    chip.classList.remove("selected");
+    card.classList.remove("selected");
   } else {
     state.selected.add(cat);
-    chip.classList.add("selected");
+    card.classList.add("selected");
   }
 });
+
+// ---------- UI: dock inferior ----------
+els.dock.addEventListener("click", (e) => {
+  const btn = e.target.closest(".dock-item");
+  if (!btn) return;
+  switchTab(btn.dataset.view);
+});
+
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll(".dock-item").forEach((b) => {
+    b.classList.toggle("active", b.dataset.view === tab);
+  });
+  els.viewInicio.hidden = tab !== "inicio";
+  els.viewBusquedas.hidden = tab !== "busquedas";
+  els.viewMenu.hidden = tab !== "menu";
+
+  if (tab === "busquedas") renderHistory();
+  if (tab === "inicio" && state.view === "map") {
+    setTimeout(() => state.map && state.map.invalidateSize(), 50);
+  }
+}
 
 // ---------- UI: radio de búsqueda ----------
 els.radius.addEventListener("input", () => {
@@ -146,7 +190,16 @@ function setView(view) {
 // ---------- Buscar ----------
 els.searchBtn.addEventListener("click", runSearch);
 
-async function runSearch() {
+async function runSearch(overrides) {
+  if (overrides) {
+    state.selected = new Set(overrides.cats || []);
+    state.radius = overrides.radius || state.radius;
+    els.radius.value = state.radius;
+    els.radiusValue.textContent = formatDistance(state.radius, true);
+    document.querySelectorAll(".cat-card").forEach((card) => {
+      card.classList.toggle("selected", state.selected.has(card.dataset.cat));
+    });
+  }
   setStatus("");
   els.searchBtn.disabled = true;
   els.searchBtn.classList.add("loading");
@@ -166,6 +219,15 @@ async function runSearch() {
 
     state.results = buildResults(elements, cats);
     renderResults();
+
+    addHistoryEntry({
+      ts: Date.now(),
+      cats,
+      radius: state.radius,
+      count: state.results.length,
+      lat: state.userLat,
+      lon: state.userLon,
+    });
   } catch (err) {
     console.error(err);
     setStatus(errorMessage(err), true);
@@ -418,6 +480,176 @@ function updateMapMarkers() {
     state.map.setView([state.userLat, state.userLon], 15);
   }
 }
+
+// ---------- Historial de búsquedas ----------
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveHistoryList(list) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn("No se pudo guardar el historial", e);
+  }
+}
+
+function addHistoryEntry(entry) {
+  state.history.unshift(entry);
+  if (state.history.length > HISTORY_LIMIT) {
+    state.history = state.history.slice(0, HISTORY_LIMIT);
+  }
+  saveHistoryList(state.history);
+  updateHistoryBadge();
+  if (state.activeTab === "busquedas") renderHistory();
+}
+
+function clearHistory() {
+  state.history = [];
+  saveHistoryList(state.history);
+  updateHistoryBadge();
+  renderHistory();
+}
+
+function updateHistoryBadge() {
+  const n = state.history.length;
+  els.historyBadge.hidden = n === 0;
+  els.historyBadge.textContent = n > 99 ? "99+" : String(n);
+}
+
+function renderHistory() {
+  if (state.history.length === 0) {
+    els.historyList.innerHTML = `<div class="empty-history">Todavía no hiciste ninguna búsqueda.<br>Buscá lugares desde Inicio y van a aparecer acá.</div>`;
+    return;
+  }
+
+  els.historyList.innerHTML = state.history
+    .map((entry, idx) => {
+      const catList = entry.cats && entry.cats.length ? entry.cats : Object.keys(CATEGORY_DEFS);
+      const icons = catList
+        .slice(0, 4)
+        .map((c) => (CATEGORY_DEFS[c] ? CATEGORY_DEFS[c].icon : ""))
+        .join(" ");
+      const labels = catList.map((c) => (CATEGORY_DEFS[c] ? CATEGORY_DEFS[c].label : c)).join(", ");
+      return `
+        <button class="history-card" data-idx="${idx}">
+          <span class="history-icons">${icons || "🔎"}</span>
+          <span class="history-info">
+            <p class="history-title">${escapeHtml(labels || "Todas las categorías")}</p>
+            <span class="history-meta">
+              <span>${formatDistance(entry.radius, true)}</span>
+              <span>${entry.count} resultado${entry.count === 1 ? "" : "s"}</span>
+            </span>
+          </span>
+          <span class="history-time">${formatRelativeTime(entry.ts)}</span>
+          <span class="history-replay" aria-hidden="true">↻</span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+els.historyList.addEventListener("click", (e) => {
+  const card = e.target.closest(".history-card");
+  if (!card) return;
+  const entry = state.history[Number(card.dataset.idx)];
+  if (!entry) return;
+  switchTab("inicio");
+  runSearch({ cats: entry.cats, radius: entry.radius });
+});
+
+function formatRelativeTime(ts) {
+  const diffMs = Date.now() - ts;
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return "ahora";
+  if (min < 60) return `hace ${min} min`;
+  const hs = Math.floor(min / 60);
+  if (hs < 24) return `hace ${hs} h`;
+  const days = Math.floor(hs / 24);
+  if (days < 7) return `hace ${days} d`;
+  return new Date(ts).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+}
+
+// ---------- Menú ----------
+els.menuClearHistory.addEventListener("click", () => {
+  if (state.history.length === 0) {
+    showToast("El historial ya está vacío");
+    return;
+  }
+  if (confirm("¿Borrar todo tu historial de búsqueda? Esta acción no se puede deshacer.")) {
+    clearHistory();
+    showToast("Historial borrado");
+  }
+});
+
+els.menuShareWhatsapp.addEventListener("click", shareWhatsApp);
+
+function shareWhatsApp() {
+  let text;
+  if (state.results.length > 0) {
+    const top = state.results.slice(0, 5);
+    const lines = top.map((p) => {
+      const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`;
+      return `${def.icon} ${p.name} — ${formatDistance(p.dist)}\n${mapsUrl}`;
+    });
+    text = `Encontré estos lugares cerca con Cerca 📍:\n\n${lines.join("\n\n")}`;
+  } else {
+    text = "Mirá esta app para encontrar bares, cafés, parrillas y más cerca tuyo: Cerca 📍";
+  }
+  const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  window.open(url, "_blank", "noopener");
+}
+
+// ---------- Modo oscuro ----------
+function loadDarkPreference() {
+  return localStorage.getItem(DARK_KEY) === "1";
+}
+
+function setDarkMode(on) {
+  document.body.classList.toggle("dark", on);
+  els.darkModeToggle.classList.toggle("on", on);
+  try {
+    localStorage.setItem(DARK_KEY, on ? "1" : "0");
+  } catch (e) {}
+}
+
+els.menuDarkMode.addEventListener("click", () => {
+  const isOn = !document.body.classList.contains("dark");
+  setDarkMode(isOn);
+});
+
+// ---------- Acerca de (modal) ----------
+els.menuAbout.addEventListener("click", () => {
+  els.aboutOverlay.hidden = false;
+});
+els.aboutClose.addEventListener("click", () => {
+  els.aboutOverlay.hidden = true;
+});
+els.aboutOverlay.addEventListener("click", (e) => {
+  if (e.target === els.aboutOverlay) els.aboutOverlay.hidden = true;
+});
+
+// ---------- Toast ----------
+let toastTimer = null;
+function showToast(msg) {
+  els.toast.textContent = msg;
+  els.toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    els.toast.hidden = true;
+  }, 2200);
+}
+
+// ---------- Init ----------
+state.history = loadHistory();
+updateHistoryBadge();
+setDarkMode(loadDarkPreference());
 
 // ---------- Service worker ----------
 if ("serviceWorker" in navigator) {

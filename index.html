@@ -49,70 +49,158 @@
 </header>
 
 <main>
-  <section class="controls glass-panel" aria-label="Filtros de búsqueda">
-    <div class="chips-scroll" id="categoryChips" role="group" aria-label="Categorías">
-      <button class="chip" data-cat="bar" data-color="bar">
-        <span class="chip-icon">🍸</span>Bar
+
+  <!-- ================= VISTA: INICIO ================= -->
+  <section id="view-inicio" class="app-view">
+
+    <section class="controls glass-panel" aria-label="Filtros de búsqueda">
+      <h2 class="section-title">Categorías</h2>
+      <div class="category-grid" id="categoryChips" role="group" aria-label="Categorías">
+        <button class="cat-card" data-cat="bar" data-color="bar">
+          <span class="cat-icon">🍸</span><span class="cat-label">Bar</span>
+        </button>
+        <button class="cat-card" data-cat="cafe" data-color="cafe">
+          <span class="cat-icon">☕</span><span class="cat-label">Café</span>
+        </button>
+        <button class="cat-card" data-cat="parrilla" data-color="parrilla">
+          <span class="cat-icon">🔥</span><span class="cat-label">Parrilla</span>
+        </button>
+        <button class="cat-card" data-cat="restaurante" data-color="restaurante">
+          <span class="cat-icon">🍽</span><span class="cat-label">Resto</span>
+        </button>
+        <button class="cat-card" data-cat="pizza" data-color="pizza">
+          <span class="cat-icon">🍕</span><span class="cat-label">Pizza</span>
+        </button>
+        <button class="cat-card" data-cat="heladeria" data-color="heladeria">
+          <span class="cat-icon">🍦</span><span class="cat-label">Heladería</span>
+        </button>
+        <button class="cat-card" data-cat="panaderia" data-color="panaderia">
+          <span class="cat-icon">🥐</span><span class="cat-label">Panadería</span>
+        </button>
+        <button class="cat-card" data-cat="farmacia" data-color="farmacia">
+          <span class="cat-icon">💊</span><span class="cat-label">Farmacia</span>
+        </button>
+        <button class="cat-card" data-cat="supermercado" data-color="supermercado">
+          <span class="cat-icon">🛒</span><span class="cat-label">Súper</span>
+        </button>
+        <button class="cat-card" data-cat="comida_rapida" data-color="comida_rapida">
+          <span class="cat-icon">🍔</span><span class="cat-label">Rápida</span>
+        </button>
+      </div>
+
+      <div class="radius-row">
+        <label for="radius">Radio</label>
+        <input type="range" id="radius" min="300" max="5000" step="100" value="1000" />
+        <span class="radius-value mono" id="radiusValue">1000 m</span>
+      </div>
+
+      <button id="searchBtn" class="search-btn">
+        <span class="btn-spinner" aria-hidden="true"></span>
+        <svg class="btn-icon" width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21L16.5 16.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span id="searchBtnLabel">Buscar cerca mío</span>
       </button>
-      <button class="chip" data-cat="cafe" data-color="cafe">
-        <span class="chip-icon">☕</span>Café
-      </button>
-      <button class="chip" data-cat="parrilla" data-color="parrilla">
-        <span class="chip-icon">🔥</span>Parrilla
-      </button>
-      <button class="chip" data-cat="restaurante" data-color="restaurante">
-        <span class="chip-icon">🍽</span>Resto
-      </button>
-      <button class="chip" data-cat="pizza" data-color="pizza">
-        <span class="chip-icon">🍕</span>Pizza
-      </button>
-      <button class="chip" data-cat="heladeria" data-color="heladeria">
-        <span class="chip-icon">🍦</span>Heladería
-      </button>
-      <button class="chip" data-cat="panaderia" data-color="panaderia">
-        <span class="chip-icon">🥐</span>Panadería
-      </button>
-      <button class="chip" data-cat="farmacia" data-color="farmacia">
-        <span class="chip-icon">💊</span>Farmacia
-      </button>
-      <button class="chip" data-cat="supermercado" data-color="supermercado">
-        <span class="chip-icon">🛒</span>Súper
-      </button>
-      <button class="chip" data-cat="comida_rapida" data-color="comida_rapida">
-        <span class="chip-icon">🍔</span>Rápida
-      </button>
+    </section>
+
+    <section class="status" id="statusBox" aria-live="polite"></section>
+
+    <div class="view-toggle glass-panel" id="viewToggle" hidden>
+      <button class="toggle-btn active" data-view="list">Lista</button>
+      <button class="toggle-btn" data-view="map">Mapa</button>
     </div>
 
-    <div class="radius-row">
-      <label for="radius">Radio</label>
-      <input type="range" id="radius" min="300" max="3000" step="100" value="1000" />
-      <span class="radius-value mono" id="radiusValue">1000 m</span>
-    </div>
+    <section id="resultsView" class="results" hidden></section>
 
-    <button id="searchBtn" class="search-btn">
-      <span class="btn-spinner" aria-hidden="true"></span>
-      <svg class="btn-icon" width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21L16.5 16.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      <span id="searchBtnLabel">Buscar cerca mío</span>
-    </button>
+    <section id="mapView" class="map-wrap glass-panel" hidden>
+      <div id="map"></div>
+    </section>
   </section>
 
-  <section class="status" id="statusBox" aria-live="polite"></section>
-
-  <div class="view-toggle glass-panel" id="viewToggle" hidden>
-    <button class="toggle-btn active" data-view="list">Lista</button>
-    <button class="toggle-btn" data-view="map">Mapa</button>
-  </div>
-
-  <section id="resultsView" class="results" hidden></section>
-
-  <section id="mapView" class="map-wrap glass-panel" hidden>
-    <div id="map"></div>
+  <!-- ================= VISTA: BÚSQUEDAS ================= -->
+  <section id="view-busquedas" class="app-view" hidden>
+    <section class="panel-header glass-panel">
+      <h2 class="section-title">Tus búsquedas</h2>
+      <p class="section-sub">Volvé a ejecutar una búsqueda reciente con un toque</p>
+    </section>
+    <section id="historyList" class="history-list"></section>
   </section>
+
+  <!-- ================= VISTA: MENÚ ================= -->
+  <section id="view-menu" class="app-view" hidden>
+    <section class="panel-header glass-panel">
+      <h2 class="section-title">Menú</h2>
+      <p class="section-sub">Preferencias y acciones rápidas</p>
+    </section>
+
+    <section class="menu-list glass-panel">
+      <button class="menu-item" id="menuClearHistory">
+        <span class="menu-item-icon">🗑️</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Borrar historial de búsqueda</span>
+          <span class="menu-item-desc">Elimina todas tus búsquedas guardadas</span>
+        </span>
+        <span class="menu-item-chevron">›</span>
+      </button>
+
+      <button class="menu-item" id="menuShareWhatsapp">
+        <span class="menu-item-icon">📲</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Compartir por WhatsApp</span>
+          <span class="menu-item-desc">Enviá tus últimos resultados a un contacto</span>
+        </span>
+        <span class="menu-item-chevron">›</span>
+      </button>
+
+      <button class="menu-item" id="menuDarkMode">
+        <span class="menu-item-icon">🌙</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Modo oscuro</span>
+          <span class="menu-item-desc">Cambiá la apariencia de la app</span>
+        </span>
+        <span class="menu-toggle" id="darkModeToggle" aria-hidden="true"></span>
+      </button>
+
+      <button class="menu-item" id="menuAbout">
+        <span class="menu-item-icon">ℹ️</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Acerca de Cerca</span>
+          <span class="menu-item-desc">Versión, datos y créditos</span>
+        </span>
+        <span class="menu-item-chevron">›</span>
+      </button>
+    </section>
+  </section>
+
 </main>
 
-<footer class="footer">
-  <p>Datos de lugares: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</p>
-</footer>
+<!-- ================= DOCK INFERIOR ================= -->
+<nav class="dock glass-panel" id="dock" aria-label="Navegación principal">
+  <button class="dock-item active" data-view="inicio">
+    <svg viewBox="0 0 24 24" fill="none" width="21" height="21"><path d="M4 11.5L12 4L20 11.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10V20H18V10" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Inicio</span>
+  </button>
+  <button class="dock-item" data-view="busquedas">
+    <svg viewBox="0 0 24 24" fill="none" width="21" height="21"><circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="1.9"/><path d="M12 8V12.3L14.8 14.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Búsquedas</span>
+    <span class="dock-badge" id="historyBadge" hidden>0</span>
+  </button>
+  <button class="dock-item" data-view="menu">
+    <svg viewBox="0 0 24 24" fill="none" width="21" height="21"><path d="M4 6H20" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M4 12H20" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M4 18H20" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+    <span>Menú</span>
+  </button>
+</nav>
+
+<!-- ================= MODAL "ACERCA DE" ================= -->
+<div class="modal-overlay" id="aboutOverlay" hidden>
+  <div class="modal-card glass-panel">
+    <h3>Cerca</h3>
+    <p>Encontrá bares, cafés, parrillas, farmacias, supermercados y más cerca tuyo usando tu ubicación GPS.</p>
+    <p class="modal-credit">Datos de lugares: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</p>
+    <button class="modal-close" id="aboutClose">Cerrar</button>
+  </div>
+</div>
+
+<!-- ================= TOAST ================= -->
+<div class="toast" id="toast" hidden></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="app.js"></script>
