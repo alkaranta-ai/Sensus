@@ -754,6 +754,9 @@ input[type="range"]::-moz-range-thumb {
   justify-content: center;
   padding: 24px;
 }
+.modal-overlay[hidden] {
+  display: none;
+}
 .modal-card {
   max-width: 360px;
   width: 100%;
