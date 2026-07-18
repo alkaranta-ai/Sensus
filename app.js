@@ -177,6 +177,8 @@ const els = {
   suggestionSub: document.getElementById("suggestionSub"),
 
   resultsToolbar: document.getElementById("resultsToolbar"),
+  resultsStatus: document.getElementById("resultsStatus"),
+  busquedasIntro: document.getElementById("busquedasIntro"),
   searchText: document.getElementById("searchText"),
   sortSelect: document.getElementById("sortSelect"),
   openNowToggle: document.getElementById("openNowToggle"),
@@ -303,6 +305,8 @@ async function runSearch(overrides) {
     if (els.searchText) els.searchText.value = "";
     state.searchText = "";
     renderResults();
+    setStatus("");
+    switchTab("busquedas");
 
     state.settings.defaultRadius = state.radius;
     state.settings.defaultCats = cats;
@@ -319,6 +323,7 @@ async function runSearch(overrides) {
   } catch (err) {
     console.error(err);
     setStatus(errorMessage(err), true);
+    showToast(errorMessage(err));
   } finally {
     els.searchBtn.disabled = false;
     els.searchBtn.classList.remove("loading");
@@ -612,12 +617,14 @@ function applyFiltersAndSort() {
 function renderResults() {
   els.viewToggle.hidden = false;
   els.resultsToolbar.hidden = false;
+  els.resultsStatus.hidden = false;
+  if (els.busquedasIntro) els.busquedasIntro.hidden = true;
   setView(state.view);
   renderMapCatFilter();
 
   if (state.results.length === 0) {
     els.resultsView.innerHTML = `<div class="empty-state">No encontramos lugares en ese radio. Probá ampliar la distancia o cambiar las categorías.</div>`;
-    setStatus("");
+    els.resultsStatus.textContent = "";
     updateMapMarkers();
     return;
   }
@@ -626,14 +633,14 @@ function renderResults() {
 
   if (list.length === 0) {
     els.resultsView.innerHTML = `<div class="empty-state">Ningún resultado coincide con el filtro actual.</div>`;
-    setStatus(`${state.results.length} lugares encontrados · 0 visibles`);
+    els.resultsStatus.textContent = `${state.results.length} lugares encontrados · 0 visibles`;
     updateMapMarkers();
     return;
   }
 
-  setStatus(list.length === state.results.length
+  els.resultsStatus.textContent = list.length === state.results.length
     ? `${state.results.length} lugares encontrados`
-    : `${list.length} de ${state.results.length} lugares`);
+    : `${list.length} de ${state.results.length} lugares`;
 
   els.resultsView.innerHTML = list
     .map((p) => {
@@ -1097,7 +1104,6 @@ els.savedSearchesList.addEventListener("click", (e) => {
   if (!card) return;
   const s = state.savedSearches[Number(card.dataset.savedIdx)];
   if (!s) return;
-  switchTab("inicio");
   runSearch({ cats: s.cats, radius: s.radius });
 });
 if (els.saveSearchBtn) {
@@ -1417,7 +1423,6 @@ els.historyList.addEventListener("click", (e) => {
   if (!card) return;
   const entry = state.history[Number(card.dataset.idx)];
   if (!entry) return;
-  switchTab("inicio");
   runSearch({ cats: entry.cats, radius: entry.radius });
 });
 

@@ -128,6 +128,10 @@
     </button>
 
     <section class="status" id="statusBox" aria-live="polite"></section>
+  </section>
+
+  <!-- ================= VISTA: BÚSQUEDAS ================= -->
+  <section id="view-busquedas" class="app-view" hidden>
 
     <div class="view-toggle glass-panel" id="viewToggle" hidden>
       <button class="toggle-btn active" data-view="list">Lista</button>
@@ -148,17 +152,16 @@
       </div>
     </section>
 
+    <section class="status" id="resultsStatus" aria-live="polite" hidden></section>
+
     <section id="resultsView" class="results" hidden></section>
 
     <section id="mapView" class="map-wrap glass-panel" hidden>
       <div class="map-cat-filter" id="mapCatFilter"></div>
       <div id="map"></div>
     </section>
-  </section>
 
-  <!-- ================= VISTA: BÚSQUEDAS ================= -->
-  <section id="view-busquedas" class="app-view" hidden>
-    <section class="panel-header glass-panel">
+    <section class="panel-header glass-panel" id="busquedasIntro">
       <h2 class="section-title">Búsquedas</h2>
       <p class="section-sub">Volvé a ejecutar una búsqueda reciente o guardada con un toque</p>
     </section>
