@@ -77,12 +77,6 @@ const CATEGORY_DEFS = {
     badgeClass: "comida_rapida",
     filters: [`node["amenity"="fast_food"](around:RADIUS,LAT,LON);`],
   },
-  cajero: {
-    label: "Cajero",
-    icon: "🏧",
-    badgeClass: "cajero",
-    filters: [`node["amenity"="atm"](around:RADIUS,LAT,LON);`],
-  },
   estacion_servicio: {
     label: "Estación",
     icon: "⛽",
@@ -94,12 +88,6 @@ const CATEGORY_DEFS = {
     icon: "🏪",
     badgeClass: "kiosco",
     filters: [`node["shop"="kiosk"](around:RADIUS,LAT,LON);`, `node["shop"="convenience"]["name"](around:RADIUS,LAT,LON);`],
-  },
-  veterinaria: {
-    label: "Vet.",
-    icon: "🐾",
-    badgeClass: "veterinaria",
-    filters: [`node["amenity"="veterinary"](around:RADIUS,LAT,LON);`],
   },
 };
 
@@ -613,10 +601,8 @@ function classify(tags, cats) {
   if (amenity === "pharmacy") return "farmacia";
   if (shop === "supermarket" || shop === "convenience") return "supermercado";
   if (amenity === "fast_food") return "comida_rapida";
-  if (amenity === "atm") return "cajero";
   if (amenity === "fuel") return "estacion_servicio";
   if (shop === "kiosk") return "kiosco";
-  if (amenity === "veterinary") return "veterinaria";
   if (shop === "convenience") return "kiosco";
   if (amenity === "restaurant") return "restaurante";
   return "restaurante";

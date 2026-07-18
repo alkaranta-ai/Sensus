@@ -30,10 +30,8 @@
   --c-farmacia:     #3DD68C;
   --c-supermercado: #38C4E0;
   --c-comida_rapida:#7C6EF5;
-  --c-cajero:          #4FD1C5;
   --c-estacion_servicio:#FF7A45;
   --c-kiosco:          #FFD166;
-  --c-veterinaria:     #6BCB77;
 
   --radius-lg: 26px;
   --radius-md: 18px;
@@ -257,7 +255,7 @@ main {
 /* ─── Grilla de categorías — firma del rediseño ─── */
 .category-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin-bottom: 18px;
 }
@@ -347,10 +345,8 @@ main {
 .cat-card[data-color="farmacia"]     { --_c: var(--c-farmacia); }
 .cat-card[data-color="supermercado"] { --_c: var(--c-supermercado); }
 .cat-card[data-color="comida_rapida"]{ --_c: var(--c-comida_rapida); }
-.cat-card[data-color="cajero"]            { --_c: var(--c-cajero); }
 .cat-card[data-color="estacion_servicio"] { --_c: var(--c-estacion_servicio); }
 .cat-card[data-color="kiosco"]            { --_c: var(--c-kiosco); }
-.cat-card[data-color="veterinaria"]       { --_c: var(--c-veterinaria); }
 
 /* ─── Fila de radio ─── */
 .radius-row {
@@ -573,10 +569,8 @@ input[type="range"]::-moz-range-thumb {
 .place-badge.farmacia    { box-shadow: 0 0 0 1px var(--c-farmacia), inset 0 0 12px rgba(61,214,140,0.15); }
 .place-badge.supermercado{ box-shadow: 0 0 0 1px var(--c-supermercado), inset 0 0 12px rgba(56,196,224,0.15); }
 .place-badge.comida_rapida{ box-shadow: 0 0 0 1px var(--c-comida_rapida), inset 0 0 12px rgba(124,110,245,0.15); }
-.place-badge.cajero            { box-shadow: 0 0 0 1px var(--c-cajero), inset 0 0 12px rgba(79,209,197,0.15); }
 .place-badge.estacion_servicio { box-shadow: 0 0 0 1px var(--c-estacion_servicio), inset 0 0 12px rgba(255,122,69,0.15); }
 .place-badge.kiosco            { box-shadow: 0 0 0 1px var(--c-kiosco), inset 0 0 12px rgba(255,209,102,0.15); }
-.place-badge.veterinaria       { box-shadow: 0 0 0 1px var(--c-veterinaria), inset 0 0 12px rgba(107,203,119,0.15); }
 
 .place-info { flex: 1; min-width: 0; }
 
@@ -1097,7 +1091,7 @@ body.dark {
 
 @media (min-width: 640px) {
   .brand h1 { font-size: 1.8rem; }
-  .category-grid { grid-template-columns: repeat(5, 1fr); }
+  .category-grid { grid-template-columns: repeat(4, 1fr); }
   .sheet { border-radius: 28px; margin-bottom: 24px; }
 }
 
