@@ -344,7 +344,6 @@ async function runSearch(overrides) {
       elements = cached.elements;
       state.lastSearchWasCache = true;
     } else {
-      switchTab("busquedas");
       showResultsSkeleton();
       setStatus("Consultando OpenStreetMap…");
       try {
@@ -375,7 +374,6 @@ async function runSearch(overrides) {
     } else {
       setStatus("");
     }
-    switchTab("busquedas");
 
     state.settings.defaultRadius = state.radius;
     state.settings.defaultCats = cats;
