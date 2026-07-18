@@ -122,6 +122,11 @@ const els = {
   aboutOverlay: document.getElementById("aboutOverlay"),
   aboutClose: document.getElementById("aboutClose"),
   toast: document.getElementById("toast"),
+
+  sheetOverlay: document.getElementById("placeSheetOverlay"),
+  sheet: document.getElementById("placeSheet"),
+  sheetClose: document.getElementById("sheetClose"),
+  sheetContent: document.getElementById("sheetContent"),
 };
 
 // ---------- UI: tarjetas de categoría ----------
@@ -335,11 +340,45 @@ function buildResults(elements, cats) {
       dist,
       category,
       address: buildAddress(tags),
+      contact: buildContact(tags),
     });
   });
 
   items.sort((a, b) => a.dist - b.dist);
   return items;
+}
+
+// Extrae teléfono, web, redes, horario y foto (si están mapeados en OSM)
+function buildContact(tags) {
+  const phone = tags.phone || tags["contact:phone"] || tags["contact:mobile"] || "";
+  const website = tags.website || tags["contact:website"] || tags.url || "";
+  const email = tags.email || tags["contact:email"] || "";
+  const instagram = normalizeSocial(tags.instagram || tags["contact:instagram"], "instagram.com");
+  const facebook = normalizeSocial(tags.facebook || tags["contact:facebook"], "facebook.com");
+  const opening = tags.opening_hours || "";
+  const photo = photoUrl(tags);
+  return { phone, website, email, instagram, facebook, opening, photo };
+}
+
+// Acepta tanto usuarios sueltos ("@lugar") como URLs completas y devuelve
+// siempre una URL absoluta a la red social.
+function normalizeSocial(value, domain) {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  const handle = value.replace(/^@/, "").trim();
+  if (!handle) return "";
+  return `https://${domain}/${handle}`;
+}
+
+// Foto real del lugar vía Wikimedia Commons (licencia libre) si está
+// mapeada en OSM (tag "image" o "wikimedia_commons"). Sin esto, no hay foto.
+function photoUrl(tags) {
+  if (tags.image && /^https?:\/\//i.test(tags.image)) return tags.image;
+  if (tags.wikimedia_commons) {
+    const name = tags.wikimedia_commons.replace(/^File:/i, "");
+    return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(name)}?width=640`;
+  }
+  return "";
 }
 
 function classify(tags, cats) {
@@ -403,26 +442,103 @@ function renderResults() {
   setStatus(`${state.results.length} lugares encontrados`);
 
   els.resultsView.innerHTML = state.results
-    .map((p) => {
+    .map((p, idx) => {
       const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
-      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`;
+      const c = p.contact || {};
+      const iconRow = [
+        c.phone ? "📞" : "",
+        c.website ? "🌐" : "",
+        c.instagram ? "📷" : "",
+        c.facebook ? "👍" : "",
+      ].filter(Boolean).join(" ");
       return `
-        <a class="place-card" href="${mapsUrl}" target="_blank" rel="noopener">
-          <div class="place-badge ${def.badgeClass}">${def.icon}</div>
+        <button class="place-card" type="button" data-idx="${idx}">
+          ${c.photo ? `<div class="place-thumb" style="background-image:url('${c.photo}')"></div>` : `<div class="place-badge ${def.badgeClass}">${def.icon}</div>`}
           <div class="place-info">
             <p class="place-name">${escapeHtml(p.name)}</p>
             <div class="place-meta">
               <span>${def.label}</span>
               ${p.address ? `<span>${escapeHtml(p.address)}</span>` : ""}
+              ${iconRow ? `<span class="place-icons">${iconRow}</span>` : ""}
             </div>
           </div>
           <div class="place-dist">${formatDistance(p.dist)}</div>
-        </a>
+        </button>
       `;
     })
     .join("");
 
   updateMapMarkers();
+}
+
+// ---------- Ficha de detalle (bottom sheet) ----------
+els.resultsView.addEventListener("click", (e) => {
+  const card = e.target.closest(".place-card");
+  if (!card) return;
+  const p = state.results[Number(card.dataset.idx)];
+  if (p) openPlaceSheet(p);
+});
+
+function openPlaceSheet(p) {
+  const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
+  const c = p.contact || {};
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`;
+
+  const actions = [];
+  actions.push(`<a class="sheet-action primary" href="${mapsUrl}" target="_blank" rel="noopener"><span>🧭</span>Cómo llegar</a>`);
+  if (c.phone) actions.push(`<a class="sheet-action" href="tel:${escapeHtml(c.phone.replace(/\s+/g, ""))}"><span>📞</span>Llamar</a>`);
+  if (c.website) actions.push(`<a class="sheet-action" href="${escapeHtml(c.website)}" target="_blank" rel="noopener"><span>🌐</span>Web</a>`);
+  if (c.instagram) actions.push(`<a class="sheet-action" href="${escapeHtml(c.instagram)}" target="_blank" rel="noopener"><span>📷</span>Instagram</a>`);
+  if (c.facebook) actions.push(`<a class="sheet-action" href="${escapeHtml(c.facebook)}" target="_blank" rel="noopener"><span>👍</span>Facebook</a>`);
+  actions.push(`<button class="sheet-action" id="sheetShareBtn" type="button"><span>📲</span>Compartir</button>`);
+
+  els.sheetContent.innerHTML = `
+    ${c.photo
+      ? `<div class="sheet-photo" style="background-image:url('${c.photo}')"></div>`
+      : `<div class="sheet-photo sheet-photo-placeholder ${def.badgeClass}"><span>${def.icon}</span></div>`}
+    <div class="sheet-header">
+      <div class="place-badge ${def.badgeClass}">${def.icon}</div>
+      <div class="sheet-title-wrap">
+        <h3 class="sheet-title">${escapeHtml(p.name)}</h3>
+        <p class="sheet-subtitle">${def.label} · ${formatDistance(p.dist)}${p.address ? " · " + escapeHtml(p.address) : ""}</p>
+      </div>
+    </div>
+    ${c.opening ? `<p class="sheet-hours">🕒 ${escapeHtml(c.opening)}</p>` : ""}
+    <div class="sheet-actions">${actions.join("")}</div>
+    ${(!c.phone && !c.website && !c.instagram && !c.facebook) ? `<p class="sheet-empty-note">Este lugar todavía no tiene datos de contacto cargados en OpenStreetMap.</p>` : ""}
+  `;
+
+  els.sheetOverlay.hidden = false;
+  requestAnimationFrame(() => els.sheetOverlay.classList.add("open"));
+
+  const shareBtn = document.getElementById("sheetShareBtn");
+  if (shareBtn) {
+    shareBtn.addEventListener("click", () => sharePlace(p));
+  }
+}
+
+function closePlaceSheet() {
+  els.sheetOverlay.classList.remove("open");
+  setTimeout(() => { els.sheetOverlay.hidden = true; }, 220);
+}
+
+els.sheetClose.addEventListener("click", closePlaceSheet);
+els.sheetOverlay.addEventListener("click", (e) => {
+  if (e.target === els.sheetOverlay) closePlaceSheet();
+});
+
+async function sharePlace(p) {
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`;
+  const text = `${p.name} — ${formatDistance(p.dist)}\n${mapsUrl}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: p.name, text });
+      return;
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+    }
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
 }
 
 function escapeHtml(str) {

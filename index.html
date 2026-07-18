@@ -11,9 +11,9 @@
 <meta name="theme-color" content="#0E0D0B" />
 
 <!-- iOS install support -->
-<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Cerca" />
 
 <link rel="icon" href="icons/icon-192.png" />
@@ -199,6 +199,15 @@
     <p>Encontrá bares, cafés, parrillas, farmacias, supermercados y más cerca tuyo usando tu ubicación GPS.</p>
     <p class="modal-credit">Datos de lugares: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</p>
     <button class="modal-close" id="aboutClose">Cerrar</button>
+  </div>
+</div>
+
+<!-- ================= FICHA DE LUGAR (bottom sheet) ================= -->
+<div class="sheet-overlay" id="placeSheetOverlay" hidden>
+  <div class="sheet glass-panel" id="placeSheet" role="dialog" aria-modal="true">
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <button class="sheet-close" id="sheetClose" aria-label="Cerrar">✕</button>
+    <div id="sheetContent"></div>
   </div>
 </div>
 
