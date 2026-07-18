@@ -166,12 +166,25 @@
 
   <!-- ================= VISTA: FAVORITOS ================= -->
   <section id="view-favoritos" class="app-view" hidden>
-    <section class="panel-header glass-panel">
-      <h2 class="section-title">Favoritos</h2>
-      <p class="section-sub">Tus lugares guardados con ⭐</p>
+    <section class="panel-header glass-panel favorites-header">
+      <div>
+        <h2 class="section-title">Favoritos</h2>
+        <p class="section-sub">Tus lugares guardados con ⭐</p>
+      </div>
+      <button class="chip-toggle" id="compareToggleBtn" type="button" hidden>Comparar</button>
     </section>
     <section id="favoritesList" class="results"></section>
+    <button class="compare-bar" id="compareBarBtn" type="button" hidden>Comparar (<span id="compareCount">0</span>)</button>
   </section>
+
+  <!-- ================= MODAL: COMPARAR FAVORITOS ================= -->
+  <div class="sheet-overlay" id="compareOverlay" hidden>
+    <div class="sheet glass-panel" id="compareSheet" role="dialog" aria-modal="true" aria-label="Comparar lugares">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <button class="sheet-close" id="compareClose" aria-label="Cerrar">✕</button>
+      <div id="compareContent"></div>
+    </div>
+  </div>
 
   <!-- ================= VISTA: MENÚ ================= -->
   <section id="view-menu" class="app-view" hidden>
@@ -207,6 +220,25 @@
         </span>
         <span class="menu-item-chevron">›</span>
       </button>
+
+      <button class="menu-item" id="menuExportFavorites">
+        <span class="menu-item-icon">⬇️</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Exportar favoritos</span>
+          <span class="menu-item-desc">Descargá tus favoritos y notas como JSON</span>
+        </span>
+        <span class="menu-item-chevron">›</span>
+      </button>
+
+      <button class="menu-item" id="menuImportFavorites">
+        <span class="menu-item-icon">⬆️</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Importar favoritos</span>
+          <span class="menu-item-desc">Restaurá favoritos y notas desde un JSON</span>
+        </span>
+        <span class="menu-item-chevron">›</span>
+      </button>
+      <input type="file" id="importFavoritesInput" accept="application/json,.json" hidden />
 
       <button class="menu-item" id="menuCar">
         <span class="menu-item-icon">🚗</span>
@@ -278,6 +310,15 @@
 </nav>
 
 <!-- ================= MODAL "ACERCA DE" ================= -->
+<div class="modal-overlay" id="onboardingOverlay" hidden>
+  <div class="modal-card glass-panel">
+    <h3>👋 Bienvenido a Cerca</h3>
+    <p>Cerca te muestra bares, cafés, farmacias, kioscos y más lugares cerca tuyo, con datos abiertos de OpenStreetMap.</p>
+    <p>Para eso necesitamos tu <strong>ubicación GPS</strong> — solo se usa en tu dispositivo para calcular distancias, nunca la compartimos con nadie.</p>
+    <button class="modal-close" id="onboardingClose">Entendido, vamos</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="aboutOverlay" hidden>
   <div class="modal-card glass-panel">
     <h3>Cerca</h3>

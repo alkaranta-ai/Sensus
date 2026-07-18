@@ -106,6 +106,7 @@ const CAR_KEY = "cerca_car_v1";
 const SUGGESTION_KEY = "cerca_suggestion_v1";
 const ZONE_CACHE_KEY = "cerca_zone_cache_v1";
 const LAST_RESULT_KEY = "cerca_last_result_v1";
+const ONBOARDING_KEY = "cerca_onboarding_seen_v1";
 const HISTORY_LIMIT = 30;
 const ZONE_CACHE_TTL_MS = 8 * 60 * 1000; // 8 minutos: evita repegarle a Overpass en la misma zona
 const ZONE_CACHE_MAX_ENTRIES = 15;
@@ -143,6 +144,8 @@ const state = {
   lastQuery: null,
   lastSearchWasCache: false,
   lastSearchWasOffline: false,
+  compareMode: false,
+  compareSelection: [],
 };
 
 const els = {
@@ -167,6 +170,13 @@ const els = {
   savedSearchesList: document.getElementById("savedSearchesList"),
   savedSearchesTitle: document.getElementById("savedSearchesTitle"),
   favoritesList: document.getElementById("favoritesList"),
+  compareToggleBtn: document.getElementById("compareToggleBtn"),
+  compareBarBtn: document.getElementById("compareBarBtn"),
+  compareCount: document.getElementById("compareCount"),
+  compareOverlay: document.getElementById("compareOverlay"),
+  compareSheet: document.getElementById("compareSheet"),
+  compareClose: document.getElementById("compareClose"),
+  compareContent: document.getElementById("compareContent"),
 
   suggestionBtn: document.getElementById("suggestionBtn"),
   suggestionSub: document.getElementById("suggestionSub"),
@@ -182,6 +192,9 @@ const els = {
   menuClearHistory: document.getElementById("menuClearHistory"),
   menuShareWhatsapp: document.getElementById("menuShareWhatsapp"),
   menuCopyLink: document.getElementById("menuCopyLink"),
+  menuExportFavorites: document.getElementById("menuExportFavorites"),
+  menuImportFavorites: document.getElementById("menuImportFavorites"),
+  importFavoritesInput: document.getElementById("importFavoritesInput"),
   menuCar: document.getElementById("menuCar"),
   menuCarTitle: document.getElementById("menuCarTitle"),
   menuCarDesc: document.getElementById("menuCarDesc"),
@@ -190,6 +203,8 @@ const els = {
   menuAbout: document.getElementById("menuAbout"),
   aboutOverlay: document.getElementById("aboutOverlay"),
   aboutClose: document.getElementById("aboutClose"),
+  onboardingOverlay: document.getElementById("onboardingOverlay"),
+  onboardingClose: document.getElementById("onboardingClose"),
   accentSwatches: document.getElementById("accentSwatches"),
   toast: document.getElementById("toast"),
 
@@ -679,6 +694,31 @@ function buildAddress(tags) {
   return parts.join(", ");
 }
 
+// ---------- Nominatim: dirección completa on-demand ----------
+// Solo se llama al abrir la ficha de un lugar (no en la búsqueda general) para
+// respetar el límite de uso de Nominatim (~1 req/seg) y no gastar de más.
+const geocodeCache = new Map();
+async function reverseGeocode(lat, lon) {
+  const key = `${roundCoord(lat)},${roundCoord(lon)}`;
+  if (geocodeCache.has(key)) return geocodeCache.get(key);
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+    const res = await fetch(url, { headers: { "Accept-Language": "es" } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const a = data.address || {};
+    const street = a.road || a.pedestrian || a.footway || a.path || "";
+    const number = a.house_number || "";
+    const area = a.suburb || a.neighbourhood || a.city_district || "";
+    const parts = [street ? street + (number ? " " + number : "") : "", area].filter(Boolean);
+    const result = parts.join(", ") || null;
+    geocodeCache.set(key, result);
+    return result;
+  } catch (e) {
+    return null;
+  }
+}
+
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000;
   const toRad = (d) => (d * Math.PI) / 180;
@@ -896,7 +936,7 @@ function openPlaceSheet(p) {
       <div class="place-badge ${def.badgeClass}">${def.icon}</div>
       <div class="sheet-title-wrap">
         <h3 class="sheet-title">${escapeHtml(p.name)}</h3>
-        <p class="sheet-subtitle">${def.label} · ${formatDistance(p.dist)}${p.address ? " · " + escapeHtml(p.address) : ""}${p.rating != null ? ` · <span class="sheet-rating">⭐ ${p.rating.toFixed(1)}</span>` : ""}</p>
+        <p class="sheet-subtitle">${def.label} · ${formatDistance(p.dist)}<span id="sheetAddressPart">${p.address ? " · " + escapeHtml(p.address) : ""}</span>${p.rating != null ? ` · <span class="sheet-rating">⭐ ${p.rating.toFixed(1)}</span>` : ""}</p>
       </div>
       <button class="sheet-fav-star ${isFav ? "on" : ""}" id="sheetFavBtn" type="button" aria-label="Favorito">${isFav ? "★" : "☆"}</button>
     </div>
@@ -910,6 +950,16 @@ function openPlaceSheet(p) {
   `;
 
   openSheetOverlay();
+  els.sheet.dataset.placeId = p.id;
+
+  if (!p.address) {
+    reverseGeocode(p.lat, p.lon).then((addr) => {
+      if (!addr) return;
+      if (els.sheet.dataset.placeId !== String(p.id)) return; // el usuario ya abrió otra ficha
+      const el = document.getElementById("sheetAddressPart");
+      if (el) el.textContent = " · " + addr;
+    });
+  }
 
   const shareBtn = document.getElementById("sheetShareBtn");
   if (shareBtn) shareBtn.addEventListener("click", () => sharePlace(p));
@@ -1136,7 +1186,11 @@ function loadFavorites() {
   } catch (e) { return []; }
 }
 function saveFavoritesList() {
-  try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(state.favorites)); } catch (e) {}
+  try {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(state.favorites));
+  } catch (e) {
+    showToast("No pudimos guardar: sin espacio en el dispositivo");
+  }
 }
 function isFavorite(id) {
   return state.favorites.some((f) => String(f.id) === String(id));
@@ -1175,16 +1229,23 @@ function updateFavBadge() {
   els.favBadge.textContent = n > 99 ? "99+" : String(n);
 }
 function renderFavorites() {
+  els.compareToggleBtn.hidden = state.favorites.length < 2;
+  if (state.favorites.length < 2 && state.compareMode) {
+    state.compareMode = false;
+    state.compareSelection = [];
+  }
   if (state.favorites.length === 0) {
     els.favoritesList.innerHTML = `<div class="empty-favorites">Todavía no tenés lugares favoritos.<br>Tocá la ⭐ en cualquier lugar para guardarlo acá.</div>`;
+    updateCompareBar();
     return;
   }
   els.favoritesList.innerHTML = state.favorites
     .map((p) => {
       const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
       const c = p.contact || {};
+      const selected = state.compareSelection.includes(String(p.id));
       return `
-        <button class="place-card" type="button" data-fav-open="${p.id}">
+        <button class="place-card ${selected ? "comparing" : ""}" type="button" data-fav-open="${p.id}">
           ${c.photo ? `<div class="place-thumb" style="background-image:url('${c.photo}')"></div>` : `<div class="place-badge ${def.badgeClass}">${def.icon}</div>`}
           <div class="place-info">
             <p class="place-name">${escapeHtml(p.name)}</p>
@@ -1195,15 +1256,85 @@ function renderFavorites() {
               ${getNote(p.id) ? `<span>📝 ${escapeHtml(getNote(p.id))}</span>` : ""}
             </div>
           </div>
-          <button class="fav-star on" type="button" data-fav-id="${p.id}" aria-label="Quitar favorito">★</button>
+          ${state.compareMode
+            ? `<span class="fav-star ${selected ? "on" : ""}" aria-hidden="true">${selected ? "✅" : "⬜"}</span>`
+            : `<button class="fav-star on" type="button" data-fav-id="${p.id}" aria-label="Quitar favorito">★</button>`}
         </button>
       `;
     })
     .join("");
+  updateCompareBar();
 }
+
+// ---------- Comparar favoritos lado a lado ----------
+els.compareToggleBtn.addEventListener("click", () => {
+  state.compareMode = !state.compareMode;
+  state.compareSelection = [];
+  els.compareToggleBtn.classList.toggle("on", state.compareMode);
+  els.compareToggleBtn.textContent = state.compareMode ? "Cancelar" : "Comparar";
+  renderFavorites();
+});
+
+function updateCompareBar() {
+  const n = state.compareSelection.length;
+  els.compareBarBtn.hidden = !state.compareMode || n < 2;
+  els.compareBarBtn.disabled = n < 2;
+  els.compareCount.textContent = String(n);
+}
+
+els.compareBarBtn.addEventListener("click", () => {
+  const places = state.compareSelection
+    .map((id) => state.favorites.find((f) => String(f.id) === id))
+    .filter(Boolean);
+  if (places.length < 2) return;
+  openCompareOverlay(places);
+});
+
+function openCompareOverlay(places) {
+  els.compareContent.innerHTML = `
+    <h3 class="sheet-title" style="margin-bottom:10px;">Comparar lugares</h3>
+    <div class="compare-table">
+      ${places
+        .map((p) => {
+          const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
+          const dist = state.userLat ? haversine(state.userLat, state.userLon, p.lat, p.lon) : null;
+          const openState = isOpenNow((p.contact || {}).opening);
+          const openLabel = openState === true ? "Abierto ahora" : openState === false ? "Cerrado ahora" : "Sin datos de horario";
+          return `
+            <div class="compare-col">
+              <h4>${def.icon} ${escapeHtml(p.name)}</h4>
+              <div class="compare-row"><span>Categoría</span><strong>${def.label}</strong></div>
+              <div class="compare-row"><span>Distancia</span><strong>${dist != null ? formatDistance(dist) : "—"}</strong></div>
+              <div class="compare-row"><span>Estado</span><strong>${openLabel}</strong></div>
+              <div class="compare-row"><span>Rating</span><strong>${p.rating != null ? "⭐ " + p.rating.toFixed(1) : "—"}</strong></div>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+  els.compareOverlay.hidden = false;
+  requestAnimationFrame(() => {
+    els.compareOverlay.classList.add("open");
+    els.compareClose.focus();
+  });
+}
+
+function closeCompareOverlay() {
+  els.compareOverlay.classList.remove("open");
+  setTimeout(() => { els.compareOverlay.hidden = true; }, 220);
+}
+
+els.compareClose.addEventListener("click", closeCompareOverlay);
+els.compareOverlay.addEventListener("click", (e) => {
+  if (e.target === els.compareOverlay) closeCompareOverlay();
+});
+els.compareOverlay.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeCompareOverlay();
+});
 els.favoritesList.addEventListener("click", (e) => {
   const star = e.target.closest(".fav-star");
-  if (star) {
+  if (star && star.dataset.favId) {
     e.stopPropagation();
     const p = state.favorites.find((f) => String(f.id) === String(star.dataset.favId));
     if (p) toggleFavorite(p);
@@ -1211,7 +1342,22 @@ els.favoritesList.addEventListener("click", (e) => {
   }
   const card = e.target.closest("[data-fav-open]");
   if (!card) return;
-  const p = state.favorites.find((f) => String(f.id) === String(card.dataset.favOpen));
+  const id = String(card.dataset.favOpen);
+
+  if (state.compareMode) {
+    const idx = state.compareSelection.indexOf(id);
+    if (idx >= 0) {
+      state.compareSelection.splice(idx, 1);
+    } else if (state.compareSelection.length < 3) {
+      state.compareSelection.push(id);
+    } else {
+      showToast("Podés comparar hasta 3 lugares");
+    }
+    renderFavorites();
+    return;
+  }
+
+  const p = state.favorites.find((f) => String(f.id) === id);
   if (p) {
     p.dist = state.userLat ? haversine(state.userLat, state.userLon, p.lat, p.lon) : 0;
     openPlaceSheet(p);
@@ -1226,7 +1372,11 @@ function loadNotes() {
   } catch (e) { return {}; }
 }
 function saveNotesMap() {
-  try { localStorage.setItem(NOTES_KEY, JSON.stringify(state.notes)); } catch (e) {}
+  try {
+    localStorage.setItem(NOTES_KEY, JSON.stringify(state.notes));
+  } catch (e) {
+    showToast("No pudimos guardar la nota: sin espacio en el dispositivo");
+  }
 }
 function getNote(id) { return state.notes[id] || ""; }
 function setNote(id, text) {
@@ -1243,7 +1393,11 @@ function loadSavedSearches() {
   } catch (e) { return []; }
 }
 function saveSavedSearchesList() {
-  try { localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(state.savedSearches)); } catch (e) {}
+  try {
+    localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(state.savedSearches));
+  } catch (e) {
+    showToast("No pudimos guardar: sin espacio en el dispositivo");
+  }
 }
 function renderSavedSearches() {
   if (state.savedSearches.length === 0) {
@@ -1627,6 +1781,70 @@ if (els.menuCopyLink) {
   });
 }
 
+// ---------- Exportar / importar favoritos y notas ----------
+if (els.menuExportFavorites) {
+  els.menuExportFavorites.addEventListener("click", () => {
+    if (state.favorites.length === 0) {
+      showToast("Todavía no tenés favoritos para exportar");
+      return;
+    }
+    const payload = {
+      app: "cerca",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      favorites: state.favorites,
+      notes: state.notes,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cerca-favoritos-${todayKey()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showToast("Favoritos exportados ⬇️");
+  });
+}
+
+if (els.menuImportFavorites && els.importFavoritesInput) {
+  els.menuImportFavorites.addEventListener("click", () => els.importFavoritesInput.click());
+
+  els.importFavoritesInput.addEventListener("change", async () => {
+    const file = els.importFavoritesInput.files && els.importFavoritesInput.files[0];
+    els.importFavoritesInput.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const incomingFavs = Array.isArray(data.favorites) ? data.favorites : [];
+      const incomingNotes = data.notes && typeof data.notes === "object" ? data.notes : {};
+      if (incomingFavs.length === 0) {
+        showToast("El archivo no tiene favoritos válidos");
+        return;
+      }
+      let added = 0;
+      incomingFavs.forEach((f) => {
+        if (!f || f.id == null) return;
+        if (state.favorites.some((existing) => String(existing.id) === String(f.id))) return;
+        state.favorites.push(f);
+        added++;
+      });
+      Object.keys(incomingNotes).forEach((id) => {
+        if (!state.notes[id]) state.notes[id] = incomingNotes[id];
+      });
+      saveFavoritesList();
+      saveNotesMap();
+      updateFavBadge();
+      if (state.activeTab === "favoritos") renderFavorites();
+      showToast(`Importados ${added} favoritos nuevos 📥`);
+    } catch (err) {
+      showToast("No pudimos leer ese archivo. ¿Es un JSON exportado desde Cerca?");
+    }
+  });
+}
+
 function buildShareText() {
   const appUrl = window.location.href;
   if (state.results.length > 0) {
@@ -1752,6 +1970,18 @@ updateCarMenuItem();
 
 const cachedSuggestion = loadCachedSuggestion();
 if (cachedSuggestion) showSuggestionResult(cachedSuggestion);
+
+// ---------- Onboarding (primera vez) ----------
+try {
+  if (!localStorage.getItem(ONBOARDING_KEY)) {
+    els.onboardingOverlay.hidden = false;
+  }
+} catch (e) {}
+
+els.onboardingClose.addEventListener("click", () => {
+  els.onboardingOverlay.hidden = true;
+  try { localStorage.setItem(ONBOARDING_KEY, "1"); } catch (e) {}
+});
 
 // ---------- Service worker ----------
 if ("serviceWorker" in navigator) {
