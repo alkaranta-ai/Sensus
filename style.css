@@ -617,6 +617,47 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.9rem;
 }
 
+/* ─── Skeleton loaders (mientras esperamos Overpass) ─── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.skeleton-card { pointer-events: none; cursor: default; }
+.skeleton-block, .skeleton-line {
+  background: var(--surface-3);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+.skeleton-line { height: 10px; border-radius: 5px; }
+.skeleton-line-title { width: 62%; margin-bottom: 8px; }
+.skeleton-line-sub { width: 38%; }
+
+/* ─── Banner de sugerencia (ampliar radio, caché, offline) ─── */
+.results-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: var(--surface-2);
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+.results-banner button {
+  flex-shrink: 0;
+  border: 1px solid var(--border-hi);
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* ─── Mapa ─── */
 .map-wrap { overflow: hidden; padding: 0; margin-top: 10px; }
 #map { height: 60vh; min-height: 360px; width: 100%; border-radius: var(--radius-lg); }

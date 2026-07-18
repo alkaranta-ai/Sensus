@@ -116,7 +116,12 @@ const SAVED_SEARCHES_KEY = "cerca_saved_searches_v1";
 const SETTINGS_KEY = "cerca_settings_v1";
 const CAR_KEY = "cerca_car_v1";
 const SUGGESTION_KEY = "cerca_suggestion_v1";
+const ZONE_CACHE_KEY = "cerca_zone_cache_v1";
+const LAST_RESULT_KEY = "cerca_last_result_v1";
 const HISTORY_LIMIT = 30;
+const ZONE_CACHE_TTL_MS = 8 * 60 * 1000; // 8 minutos: evita repegarle a Overpass en la misma zona
+const ZONE_CACHE_MAX_ENTRIES = 15;
+const LOW_RESULTS_THRESHOLD = 3;
 
 const ACCENTS = {
   amber:  { accent: "#F5A623", glow: "rgba(245,166,35,0.35)", dim: "rgba(245,166,35,0.15)", border: "rgba(245,166,35,0.28)" },
@@ -147,6 +152,9 @@ const state = {
   searchText: "",
   car: null,
   mapCatFilter: new Set(),
+  lastQuery: null,
+  lastSearchWasCache: false,
+  lastSearchWasOffline: false,
 };
 
 const els = {
@@ -293,17 +301,51 @@ async function runSearch(overrides) {
     state.userLon = pos.coords.longitude;
 
     els.searchBtnLabel.textContent = "Buscando lugares…";
-    setStatus("Consultando OpenStreetMap…");
 
     const cats = state.selected.size > 0 ? [...state.selected] : Object.keys(CATEGORY_DEFS);
-    const elements = await queryOverpass(cats, state.userLat, state.userLon, state.radius);
+    state.lastQuery = { cats, radius: state.radius };
+    state.lastSearchWasCache = false;
+    state.lastSearchWasOffline = false;
+
+    const cacheKey = zoneCacheKey(state.userLat, state.userLon, state.radius, cats);
+    const cached = getZoneCacheEntry(cacheKey);
+
+    let elements;
+    if (cached) {
+      elements = cached.elements;
+      state.lastSearchWasCache = true;
+    } else {
+      switchTab("busquedas");
+      showResultsSkeleton();
+      setStatus("Consultando OpenStreetMap…");
+      try {
+        elements = await queryOverpass(cats, state.userLat, state.userLon, state.radius);
+        setZoneCacheEntry(cacheKey, elements);
+        saveLastResult({ cats, radius: state.radius, lat: state.userLat, lon: state.userLon, elements });
+      } catch (err) {
+        const fallback = loadLastResult();
+        if (fallback && (!navigator.onLine || err.message === "overpass-failed")) {
+          elements = fallback.elements;
+          state.lastSearchWasOffline = true;
+        } else {
+          throw err;
+        }
+      }
+    }
 
     state.results = buildResults(elements, cats);
     state.mapCatFilter = new Set(cats);
     if (els.searchText) els.searchText.value = "";
     state.searchText = "";
     renderResults();
-    setStatus("");
+
+    if (state.lastSearchWasCache) {
+      setStatus("Resultados desde caché ⚡ (misma zona hace poco, no volvimos a consultar OSM)");
+    } else if (state.lastSearchWasOffline) {
+      setStatus("Sin conexión: te mostramos tu última búsqueda guardada 📴");
+    } else {
+      setStatus("");
+    }
     switchTab("busquedas");
 
     state.settings.defaultRadius = state.radius;
@@ -322,11 +364,37 @@ async function runSearch(overrides) {
     console.error(err);
     setStatus(errorMessage(err), true);
     showToast(errorMessage(err));
+    if (!els.resultsView.hidden && els.resultsView.querySelector(".skeleton-card")) {
+      els.resultsView.innerHTML = `<div class="empty-state">${escapeHtml(errorMessage(err))}</div>`;
+    }
   } finally {
     els.searchBtn.disabled = false;
     els.searchBtn.classList.remove("loading");
     els.searchBtnLabel.textContent = "Buscar cerca mío";
   }
+}
+
+// ---------- Skeleton loader mientras esperamos Overpass ----------
+function showResultsSkeleton(count = 6) {
+  els.viewToggle.hidden = true;
+  els.resultsToolbar.hidden = true;
+  els.resultsStatus.hidden = true;
+  if (els.busquedasIntro) els.busquedasIntro.hidden = true;
+  els.mapView.hidden = true;
+  els.resultsView.hidden = false;
+  els.resultsView.innerHTML = Array.from({ length: count })
+    .map(
+      () => `
+        <div class="place-card skeleton-card" aria-hidden="true">
+          <div class="place-thumb skeleton-block"></div>
+          <div class="place-info">
+            <div class="skeleton-line skeleton-line-title"></div>
+            <div class="skeleton-line skeleton-line-sub"></div>
+          </div>
+        </div>
+      `
+    )
+    .join("");
 }
 
 function errorMessage(err) {
@@ -366,6 +434,62 @@ function setStatus(msg, isError = false) {
   els.statusBox.textContent = msg;
 }
 
+// ---------- Caché de resultados por zona ----------
+// Evita repegarle a Overpass si el usuario busca dos veces en la misma zona
+// (mismo radio/categorías) en poco tiempo. También guardamos el último
+// resultado exitoso "a secas" para poder mostrar algo si no hay conexión.
+function roundCoord(v) {
+  // ~110m de grilla: suficiente para considerar "la misma zona"
+  return Math.round(v * 1000) / 1000;
+}
+
+function zoneCacheKey(lat, lon, radius, cats) {
+  return `${roundCoord(lat)},${roundCoord(lon)}|${radius}|${[...cats].sort().join(",")}`;
+}
+
+function loadZoneCache() {
+  try {
+    const raw = localStorage.getItem(ZONE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+
+function saveZoneCacheMap(cache) {
+  try { localStorage.setItem(ZONE_CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
+}
+
+function getZoneCacheEntry(key) {
+  const cache = loadZoneCache();
+  const entry = cache[key];
+  if (!entry) return null;
+  if (Date.now() - entry.ts > ZONE_CACHE_TTL_MS) return null;
+  return entry;
+}
+
+function setZoneCacheEntry(key, elements) {
+  const cache = loadZoneCache();
+  cache[key] = { ts: Date.now(), elements };
+  const keys = Object.keys(cache);
+  if (keys.length > ZONE_CACHE_MAX_ENTRIES) {
+    keys.sort((a, b) => cache[a].ts - cache[b].ts);
+    delete cache[keys[0]];
+  }
+  saveZoneCacheMap(cache);
+}
+
+function saveLastResult(payload) {
+  try {
+    localStorage.setItem(LAST_RESULT_KEY, JSON.stringify({ ...payload, ts: Date.now() }));
+  } catch (e) {}
+}
+
+function loadLastResult() {
+  try {
+    const raw = localStorage.getItem(LAST_RESULT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
 // ---------- Overpass query ----------
 async function queryOverpass(cats, lat, lon, radius) {
   const filterLines = [];
@@ -381,22 +505,27 @@ async function queryOverpass(cats, lat, lon, radius) {
 
   const query = `[out:json][timeout:25];(${filterLines.join("")});out center tags;`;
 
-  let lastErr;
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        body: "data=" + encodeURIComponent(query),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-      if (!res.ok) throw new Error("bad-status");
-      const json = await res.json();
-      return json.elements || [];
-    } catch (e) {
-      lastErr = e;
-    }
+  // Consultamos todos los espejos de Overpass en paralelo y nos quedamos con
+  // el primero que responda bien (Promise.any), en vez de ir secuencial:
+  // así no dependemos de que el primer endpoint de la lista esté saturado.
+  const attempts = OVERPASS_ENDPOINTS.map((endpoint) =>
+    fetch(endpoint, {
+      method: "POST",
+      body: "data=" + encodeURIComponent(query),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("bad-status");
+        return res.json();
+      })
+      .then((json) => json.elements || [])
+  );
+
+  try {
+    return await Promise.any(attempts);
+  } catch (e) {
+    throw new Error("overpass-failed");
   }
-  throw new Error("overpass-failed");
 }
 
 // ---------- Procesar resultados ----------
@@ -620,8 +749,10 @@ function renderResults() {
   setView(state.view);
   renderMapCatFilter();
 
+  const expandBanner = radiusSuggestionBanner();
+
   if (state.results.length === 0) {
-    els.resultsView.innerHTML = `<div class="empty-state">No encontramos lugares en ese radio. Probá ampliar la distancia o cambiar las categorías.</div>`;
+    els.resultsView.innerHTML = `<div class="empty-state">No encontramos lugares en ese radio. Probá ampliar la distancia o cambiar las categorías.${expandBanner ? `<br><br>${expandBanner}` : ""}</div>`;
     els.resultsStatus.textContent = "";
     updateMapMarkers();
     return;
@@ -640,7 +771,7 @@ function renderResults() {
     ? `${state.results.length} lugares encontrados`
     : `${list.length} de ${state.results.length} lugares`;
 
-  els.resultsView.innerHTML = list
+  els.resultsView.innerHTML = (expandBanner || "") + list
     .map((p) => {
       const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
       const c = p.contact || {};
@@ -673,6 +804,28 @@ function renderResults() {
   updateMapMarkers();
 }
 
+// ---------- Sugerencia de ampliar radio cuando hay pocos resultados ----------
+function radiusSuggestionBanner() {
+  if (state.radius >= 5000) return "";
+  if (state.results.length === 0 || state.results.length < LOW_RESULTS_THRESHOLD) {
+    const next = Math.min(5000, state.radius * 2);
+    return `
+      <div class="results-banner">
+        <span>${state.results.length === 0 ? "Casi no hay resultados por acá." : "Encontramos pocos lugares."} Probá con más radio.</span>
+        <button type="button" data-action="expand-radius" data-radius="${next}">Ampliar a ${formatDistance(next, true)}</button>
+      </div>
+    `;
+  }
+  return "";
+}
+
+function expandRadiusAndSearch(newRadius) {
+  state.radius = newRadius;
+  els.radius.value = newRadius;
+  els.radiusValue.textContent = formatDistance(newRadius, true);
+  runSearch();
+}
+
 function findPlaceById(id) {
   return state.results.find((p) => String(p.id) === String(id))
     || state.filteredResults.find((p) => String(p.id) === String(id));
@@ -680,6 +833,12 @@ function findPlaceById(id) {
 
 // ---------- Ficha de detalle (bottom sheet) ----------
 els.resultsView.addEventListener("click", (e) => {
+  const expandBtn = e.target.closest("[data-action='expand-radius']");
+  if (expandBtn) {
+    e.stopPropagation();
+    expandRadiusAndSearch(Number(expandBtn.dataset.radius));
+    return;
+  }
   const star = e.target.closest(".fav-star");
   if (star) {
     e.stopPropagation();
@@ -715,6 +874,17 @@ els.openNowToggle.addEventListener("click", () => {
   saveSettings();
   renderResults();
 });
+
+// ---------- Foco accesible del bottom sheet ----------
+let sheetTriggerEl = null;
+function openSheetOverlay() {
+  sheetTriggerEl = document.activeElement;
+  els.sheetOverlay.hidden = false;
+  requestAnimationFrame(() => {
+    els.sheetOverlay.classList.add("open");
+    els.sheetClose.focus();
+  });
+}
 
 function openPlaceSheet(p) {
   const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
@@ -753,8 +923,7 @@ function openPlaceSheet(p) {
     </div>
   `;
 
-  els.sheetOverlay.hidden = false;
-  requestAnimationFrame(() => els.sheetOverlay.classList.add("open"));
+  openSheetOverlay();
 
   const shareBtn = document.getElementById("sheetShareBtn");
   if (shareBtn) shareBtn.addEventListener("click", () => sharePlace(p));
@@ -778,11 +947,38 @@ function openPlaceSheet(p) {
 function closePlaceSheet() {
   els.sheetOverlay.classList.remove("open");
   setTimeout(() => { els.sheetOverlay.hidden = true; }, 220);
+  if (sheetTriggerEl && typeof sheetTriggerEl.focus === "function") {
+    sheetTriggerEl.focus();
+  }
+  sheetTriggerEl = null;
 }
 
 els.sheetClose.addEventListener("click", closePlaceSheet);
 els.sheetOverlay.addEventListener("click", (e) => {
   if (e.target === els.sheetOverlay) closePlaceSheet();
+});
+
+// Lector de pantalla: Escape cierra, Tab queda atrapado dentro del sheet
+els.sheetOverlay.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    e.stopPropagation();
+    closePlaceSheet();
+    return;
+  }
+  if (e.key !== "Tab") return;
+  const focusables = Array.prototype.slice.call(
+    els.sheet.querySelectorAll('a[href], button:not([disabled]), textarea, input, [tabindex]:not([tabindex="-1"])')
+  );
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
 });
 
 async function sharePlace(p) {
@@ -1183,8 +1379,7 @@ if (els.menuCar) {
         <button class="sheet-action" id="carClearBtn" type="button"><span>🗑️</span>Borrar</button>
       </div>
     `;
-    els.sheetOverlay.hidden = false;
-    requestAnimationFrame(() => els.sheetOverlay.classList.add("open"));
+    openSheetOverlay();
     document.getElementById("carUpdateBtn").addEventListener("click", async () => {
       try {
         const pos = await getPosition();
