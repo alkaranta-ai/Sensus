@@ -111,6 +111,7 @@ const HISTORY_LIMIT = 30;
 const ZONE_CACHE_TTL_MS = 8 * 60 * 1000; // 8 minutos: evita repegarle a Overpass en la misma zona
 const ZONE_CACHE_MAX_ENTRIES = 15;
 const LOW_RESULTS_THRESHOLD = 3;
+const RESULTS_PAGE_SIZE = 24; // cuántas tarjetas se renderizan por tanda
 
 const ACCENTS = {
   amber:  { accent: "#F5A623", glow: "rgba(245,166,35,0.35)", dim: "rgba(245,166,35,0.15)", border: "rgba(245,166,35,0.28)", glass: "rgba(245,166,35,0.6)" },
@@ -185,6 +186,7 @@ const els = {
 
   resultsToolbar: document.getElementById("resultsToolbar"),
   resultsStatus: document.getElementById("resultsStatus"),
+  refreshResultsBtn: document.getElementById("refreshResultsBtn"),
   busquedasIntro: document.getElementById("busquedasIntro"),
   searchText: document.getElementById("searchText"),
   sortSelect: document.getElementById("sortSelect"),
@@ -244,6 +246,7 @@ els.chips.addEventListener("click", (e) => {
     state.selected.add(cat);
     card.classList.add("selected");
   }
+  card.setAttribute("aria-pressed", String(state.selected.has(cat)));
 });
 
 // ---------- UI: dock inferior ----------
@@ -256,7 +259,10 @@ els.dock.addEventListener("click", (e) => {
 function switchTab(tab) {
   state.activeTab = tab;
   document.querySelectorAll(".dock-item").forEach((b) => {
-    b.classList.toggle("active", b.dataset.view === tab);
+    const isActive = b.dataset.view === tab;
+    b.classList.toggle("active", isActive);
+    if (isActive) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
   });
   const activeDock = els.dock.querySelector(".dock-item.active");
   slideGlassThumb(els.dock, els.dockThumb, activeDock);
@@ -289,7 +295,9 @@ els.viewToggle.addEventListener("click", (e) => {
 function setView(view) {
   state.view = view;
   document.querySelectorAll(".toggle-btn").forEach((b) => {
-    b.classList.toggle("active", b.dataset.view === view);
+    const isActive = b.dataset.view === view;
+    b.classList.toggle("active", isActive);
+    b.setAttribute("aria-pressed", String(isActive));
   });
   const activeToggle = els.viewToggle.querySelector(".toggle-btn.active");
   slideGlassThumb(els.viewToggle, els.viewToggleThumb, activeToggle);
@@ -309,13 +317,16 @@ function setView(view) {
 els.searchBtn.addEventListener("click", () => runSearch());
 
 async function runSearch(overrides) {
+  const forceRefresh = !!(overrides && overrides.forceRefresh);
   if (overrides && Array.isArray(overrides.cats)) {
     state.selected = new Set(overrides.cats || []);
     state.radius = overrides.radius || state.radius;
     els.radius.value = state.radius;
     els.radiusValue.textContent = formatDistance(state.radius, true);
     document.querySelectorAll(".cat-card").forEach((card) => {
-      card.classList.toggle("selected", state.selected.has(card.dataset.cat));
+      const isSel = state.selected.has(card.dataset.cat);
+      card.classList.toggle("selected", isSel);
+      card.setAttribute("aria-pressed", String(isSel));
     });
   }
   setStatus("");
@@ -337,7 +348,7 @@ async function runSearch(overrides) {
     state.lastSearchWasOffline = false;
 
     const cacheKey = zoneCacheKey(state.userLat, state.userLon, state.radius, cats);
-    const cached = getZoneCacheEntry(cacheKey);
+    const cached = forceRefresh ? null : getZoneCacheEntry(cacheKey);
 
     let elements;
     if (cached) {
@@ -363,16 +374,20 @@ async function runSearch(overrides) {
 
     state.results = buildResults(elements, cats);
     state.mapCatFilter = new Set(cats);
+    state.renderedCount = RESULTS_PAGE_SIZE;
     if (els.searchText) els.searchText.value = "";
     state.searchText = "";
     renderResults();
 
     if (state.lastSearchWasCache) {
       setStatus("Resultados desde caché (misma zona hace poco, no volvimos a consultar OSM)", "cached");
+      els.refreshResultsBtn.hidden = false;
     } else if (state.lastSearchWasOffline) {
       setStatus("Sin conexión: te mostramos tu última búsqueda guardada", "offline");
+      els.refreshResultsBtn.hidden = false;
     } else {
       setStatus("");
+      els.refreshResultsBtn.hidden = true;
     }
 
     state.settings.defaultRadius = state.radius;
@@ -425,9 +440,10 @@ function showResultsSkeleton(count = 6) {
 }
 
 function errorMessage(err) {
-  if (err && err.code === 1) return "Necesitamos permiso de ubicación para buscar cerca tuyo.";
-  if (err && err.code === 2) return "No pudimos obtener tu ubicación. Probá de nuevo.";
-  if (err && err.code === 3) return "Se agotó el tiempo esperando el GPS. Probá de nuevo.";
+  if (err && err.code === 1) return "Le negaste el permiso de ubicación al navegador. Para buscar cerca tuyo, activalo desde los ajustes del sitio (ícono de candado o 🛈 junto a la URL) y volvé a intentar.";
+  if (err && err.code === 2) return "El GPS no pudo determinar tu posición. Probá salir a un lugar más despejado o revisá que la ubicación esté activada en el celular.";
+  if (err && err.code === 3) return "Se agotó el tiempo esperando el GPS. Probá de nuevo con mejor señal.";
+  if (err && err.message === "no-geolocation") return "Este navegador no soporta geolocalización, o la página no se está sirviendo por HTTPS.";
   if (err && err.message === "overpass-failed") return "No pudimos consultar OpenStreetMap. Probá de nuevo en un momento.";
   return "Algo falló buscando lugares cerca tuyo. Probá de nuevo.";
 }
@@ -467,6 +483,8 @@ function setStatus(msg, variant) {
     els.statusBox.innerHTML = `<span aria-hidden="true">⚡</span><span>${escapeHtml(msg)}</span>`;
   } else if (variant === "offline") {
     els.statusBox.innerHTML = `<span aria-hidden="true">📴</span><span>${escapeHtml(msg)}</span>`;
+  } else if (variant === "error") {
+    els.statusBox.innerHTML = msg ? `<span aria-hidden="true">⚠️</span><span>${escapeHtml(msg)}</span>` : "";
   } else {
     els.statusBox.textContent = msg;
   }
@@ -832,7 +850,11 @@ function renderResults() {
     ? `${state.results.length} lugares encontrados`
     : `${list.length} de ${state.results.length} lugares`;
 
-  els.resultsView.innerHTML = (expandBanner || "") + list
+  if (!state.renderedCount) state.renderedCount = RESULTS_PAGE_SIZE;
+  const visibleList = list.slice(0, state.renderedCount);
+  const remaining = list.length - visibleList.length;
+
+  els.resultsView.innerHTML = (expandBanner || "") + visibleList
     .map((p, i) => {
       const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
       const c = p.contact || {};
@@ -857,11 +879,13 @@ function renderResults() {
             </div>
           </div>
           <div class="place-dist">${formatDistance(p.dist)}</div>
-          <button class="fav-star ${isFav ? "on" : ""}" type="button" data-fav-id="${p.id}" aria-label="Favorito">${isFav ? "★" : "☆"}</button>
+          <button class="fav-star ${isFav ? "on" : ""}" type="button" data-fav-id="${p.id}" aria-label="Favorito" aria-pressed="${isFav}">${isFav ? "★" : "☆"}</button>
         </button>
       `;
     })
-    .join("");
+    .join("") + (remaining > 0
+      ? `<button class="load-more-btn glass-panel" type="button" data-action="load-more">Cargar ${Math.min(remaining, RESULTS_PAGE_SIZE)} más (quedan ${remaining})</button>`
+      : "");
 
   updateMapMarkers();
 }
@@ -895,6 +919,13 @@ function findPlaceById(id) {
 
 // ---------- Ficha de detalle (bottom sheet) ----------
 els.resultsView.addEventListener("click", (e) => {
+  const loadMoreBtn = e.target.closest("[data-action='load-more']");
+  if (loadMoreBtn) {
+    e.stopPropagation();
+    state.renderedCount = (state.renderedCount || RESULTS_PAGE_SIZE) + RESULTS_PAGE_SIZE;
+    renderResults();
+    return;
+  }
   const expandBtn = e.target.closest("[data-action='expand-radius']");
   if (expandBtn) {
     e.stopPropagation();
@@ -914,12 +945,18 @@ els.resultsView.addEventListener("click", (e) => {
   if (p) openPlaceSheet(p);
 });
 
+els.refreshResultsBtn.addEventListener("click", () => {
+  if (!state.lastQuery) return;
+  runSearch({ cats: state.lastQuery.cats, radius: state.lastQuery.radius, forceRefresh: true });
+});
+
 // ---------- Toolbar: texto, orden, abierto ahora ----------
 let searchTextTimer = null;
 els.searchText.addEventListener("input", () => {
   clearTimeout(searchTextTimer);
   searchTextTimer = setTimeout(() => {
     state.searchText = els.searchText.value.trim();
+    state.renderedCount = RESULTS_PAGE_SIZE;
     renderResults();
   }, 180);
 });
@@ -927,13 +964,16 @@ els.searchText.addEventListener("input", () => {
 els.sortSelect.addEventListener("change", () => {
   state.settings.sortBy = els.sortSelect.value;
   saveSettings();
+  state.renderedCount = RESULTS_PAGE_SIZE;
   renderResults();
 });
 
 els.openNowToggle.addEventListener("click", () => {
   state.settings.openNowOnly = !state.settings.openNowOnly;
   els.openNowToggle.classList.toggle("on", state.settings.openNowOnly);
+  els.openNowToggle.setAttribute("aria-pressed", String(state.settings.openNowOnly));
   saveSettings();
+  state.renderedCount = RESULTS_PAGE_SIZE;
   renderResults();
 });
 
@@ -974,7 +1014,7 @@ function openPlaceSheet(p) {
         <h3 class="sheet-title">${escapeHtml(p.name)}</h3>
         <p class="sheet-subtitle">${def.label} · ${formatDistance(p.dist)}<span id="sheetAddressPart">${p.address ? " · " + escapeHtml(p.address) : ""}</span>${p.rating != null ? ` · <span class="sheet-rating">⭐ ${p.rating.toFixed(1)}</span>` : ""}</p>
       </div>
-      <button class="sheet-fav-star ${isFav ? "on" : ""}" id="sheetFavBtn" type="button" aria-label="Favorito">${isFav ? "★" : "☆"}</button>
+      <button class="sheet-fav-star ${isFav ? "on" : ""}" id="sheetFavBtn" type="button" aria-label="Favorito" aria-pressed="${isFav}">${isFav ? "★" : "☆"}</button>
     </div>
     ${c.opening ? `<p class="sheet-hours">🕒 ${escapeHtml(c.opening)}${openState === true ? ' <span style="color:var(--c-farmacia)">· Abierto ahora</span>' : openState === false ? ' <span style="color:var(--c-parrilla)">· Cerrado ahora</span>' : ""}</p>` : ""}
     <div class="sheet-actions">${actions.join("")}</div>
@@ -1250,6 +1290,7 @@ function toggleFavorite(p, btnEl) {
   const nowFav = isFavorite(p.id);
   document.querySelectorAll(`[data-fav-id="${p.id}"]`).forEach((el) => {
     el.classList.toggle("on", nowFav);
+    el.setAttribute("aria-pressed", String(nowFav));
     el.textContent = nowFav ? "★" : "☆";
     if (nowFav) {
       el.classList.remove("pop");
@@ -1261,6 +1302,7 @@ function toggleFavorite(p, btnEl) {
   const sheetFav = document.getElementById("sheetFavBtn");
   if (sheetFav) {
     sheetFav.classList.toggle("on", nowFav);
+    sheetFav.setAttribute("aria-pressed", String(nowFav));
     sheetFav.textContent = nowFav ? "★" : "☆";
     if (nowFav) {
       sheetFav.classList.remove("pop");
@@ -1306,7 +1348,7 @@ function renderFavorites() {
           </div>
           ${state.compareMode
             ? `<span class="fav-star ${selected ? "on" : ""}" aria-hidden="true">${selected ? "✅" : "⬜"}</span>`
-            : `<button class="fav-star on" type="button" data-fav-id="${p.id}" aria-label="Quitar favorito">★</button>`}
+            : `<button class="fav-star on" type="button" data-fav-id="${p.id}" aria-label="Quitar favorito" aria-pressed="true">★</button>`}
         </button>
       `;
     })
@@ -1319,6 +1361,7 @@ els.compareToggleBtn.addEventListener("click", () => {
   state.compareMode = !state.compareMode;
   state.compareSelection = [];
   els.compareToggleBtn.classList.toggle("on", state.compareMode);
+  els.compareToggleBtn.setAttribute("aria-pressed", String(state.compareMode));
   els.compareToggleBtn.textContent = state.compareMode ? "Cancelar" : "Comparar";
   renderFavorites();
 });
@@ -1377,9 +1420,7 @@ els.compareClose.addEventListener("click", closeCompareOverlay);
 els.compareOverlay.addEventListener("click", (e) => {
   if (e.target === els.compareOverlay) closeCompareOverlay();
 });
-els.compareOverlay.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeCompareOverlay();
-});
+els.compareOverlay.addEventListener("keydown", (e) => trapModalKeydown(e, els.compareOverlay, closeCompareOverlay));
 els.favoritesList.addEventListener("click", (e) => {
   const star = e.target.closest(".fav-star");
   if (star && star.dataset.favId) {
@@ -1506,7 +1547,11 @@ function applyAccent(name) {
   root.setProperty("--accent-dim", a.dim);
   root.setProperty("--accent-glass", a.glass);
   root.setProperty("--border-hi", a.border);
-  document.querySelectorAll(".swatch").forEach((s) => s.classList.toggle("on", s.dataset.accent === name));
+  document.querySelectorAll(".swatch").forEach((s) => {
+    const isSel = s.dataset.accent === name;
+    s.classList.toggle("on", isSel);
+    s.setAttribute("aria-pressed", String(isSel));
+  });
 }
 if (els.accentSwatches) {
   els.accentSwatches.addEventListener("click", (e) => {
@@ -1954,6 +1999,7 @@ function loadDarkPreference() {
 function setDarkMode(on) {
   document.body.classList.toggle("dark", on);
   els.darkModeToggle.classList.toggle("on", on);
+  els.menuDarkMode.setAttribute("aria-checked", String(on));
   try {
     localStorage.setItem(DARK_KEY, on ? "1" : "0");
   } catch (e) {}
@@ -1965,15 +2011,43 @@ els.menuDarkMode.addEventListener("click", () => {
 });
 
 // ---------- Acerca de (modal) ----------
+function trapModalKeydown(e, overlay, closeFn) {
+  if (e.key === "Escape") {
+    e.stopPropagation();
+    closeFn();
+    return;
+  }
+  if (e.key !== "Tab") return;
+  const focusables = Array.prototype.slice.call(
+    overlay.querySelectorAll('a[href], button:not([disabled]), textarea, input, [tabindex]:not([tabindex="-1"])')
+  );
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+let aboutTriggerEl = null;
 els.menuAbout.addEventListener("click", () => {
+  aboutTriggerEl = document.activeElement;
   els.aboutOverlay.hidden = false;
+  requestAnimationFrame(() => els.aboutClose.focus());
 });
-els.aboutClose.addEventListener("click", () => {
+function closeAboutOverlay() {
   els.aboutOverlay.hidden = true;
-});
+  if (aboutTriggerEl && typeof aboutTriggerEl.focus === "function") aboutTriggerEl.focus();
+  aboutTriggerEl = null;
+}
+els.aboutClose.addEventListener("click", closeAboutOverlay);
 els.aboutOverlay.addEventListener("click", (e) => {
-  if (e.target === els.aboutOverlay) els.aboutOverlay.hidden = true;
+  if (e.target === els.aboutOverlay) closeAboutOverlay();
 });
+els.aboutOverlay.addEventListener("keydown", (e) => trapModalKeydown(e, els.aboutOverlay, closeAboutOverlay));
 
 // ---------- Toast ----------
 let toastTimer = null;
@@ -2001,7 +2075,10 @@ state.savedSearches = loadSavedSearches();
 state.settings = loadSettings();
 applyAccent(state.settings.accent);
 if (els.sortSelect) els.sortSelect.value = state.settings.sortBy || "dist";
-if (els.openNowToggle) els.openNowToggle.classList.toggle("on", !!state.settings.openNowOnly);
+if (els.openNowToggle) {
+  els.openNowToggle.classList.toggle("on", !!state.settings.openNowOnly);
+  els.openNowToggle.setAttribute("aria-pressed", String(!!state.settings.openNowOnly));
+}
 
 if (state.settings.defaultRadius) {
   state.radius = state.settings.defaultRadius;
@@ -2011,7 +2088,9 @@ if (state.settings.defaultRadius) {
 if (state.settings.defaultCats && state.settings.defaultCats.length) {
   state.selected = new Set(state.settings.defaultCats);
   document.querySelectorAll(".cat-card").forEach((card) => {
-    card.classList.toggle("selected", state.selected.has(card.dataset.cat));
+    const isSel = state.selected.has(card.dataset.cat);
+    card.classList.toggle("selected", isSel);
+    card.setAttribute("aria-pressed", String(isSel));
   });
 }
 
@@ -2030,18 +2109,29 @@ if (cachedSuggestion) showSuggestionResult(cachedSuggestion);
 try {
   if (!localStorage.getItem(ONBOARDING_KEY)) {
     els.onboardingOverlay.hidden = false;
+    requestAnimationFrame(() => els.onboardingClose.focus());
   }
 } catch (e) {}
 
-els.onboardingClose.addEventListener("click", () => {
+function closeOnboarding() {
   els.onboardingOverlay.hidden = true;
   try { localStorage.setItem(ONBOARDING_KEY, "1"); } catch (e) {}
-});
+}
+els.onboardingClose.addEventListener("click", closeOnboarding);
+els.onboardingOverlay.addEventListener("keydown", (e) => trapModalKeydown(e, els.onboardingOverlay, closeOnboarding));
 
 // ---------- Service worker ----------
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js").catch((e) => console.warn("SW registration failed", e));
+  });
+  // Cuando un SW nuevo toma el control (deploy nuevo en GitHub Pages),
+  // recargamos una sola vez para que se vea la versión al día.
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (swReloaded) return;
+    swReloaded = true;
+    window.location.reload();
   });
 }
 
