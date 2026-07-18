@@ -113,12 +113,12 @@ const ZONE_CACHE_MAX_ENTRIES = 15;
 const LOW_RESULTS_THRESHOLD = 3;
 
 const ACCENTS = {
-  amber:  { accent: "#F5A623", glow: "rgba(245,166,35,0.35)", dim: "rgba(245,166,35,0.15)", border: "rgba(245,166,35,0.28)" },
-  blue:   { accent: "#0A84FF", glow: "rgba(10,132,255,0.35)",  dim: "rgba(10,132,255,0.15)",  border: "rgba(10,132,255,0.28)" },
-  pink:   { accent: "#FF4D7E", glow: "rgba(255,77,126,0.35)",  dim: "rgba(255,77,126,0.15)",  border: "rgba(255,77,126,0.28)" },
-  green:  { accent: "#3DD68C", glow: "rgba(61,214,140,0.35)",  dim: "rgba(61,214,140,0.15)",  border: "rgba(61,214,140,0.28)" },
-  purple: { accent: "#C778DD", glow: "rgba(199,120,221,0.35)", dim: "rgba(199,120,221,0.15)", border: "rgba(199,120,221,0.28)" },
-  teal:   { accent: "#38C4E0", glow: "rgba(56,196,224,0.35)",  dim: "rgba(56,196,224,0.15)",  border: "rgba(56,196,224,0.28)" },
+  amber:  { accent: "#F5A623", glow: "rgba(245,166,35,0.35)", dim: "rgba(245,166,35,0.15)", border: "rgba(245,166,35,0.28)", glass: "rgba(245,166,35,0.6)" },
+  blue:   { accent: "#0A84FF", glow: "rgba(10,132,255,0.35)",  dim: "rgba(10,132,255,0.15)",  border: "rgba(10,132,255,0.28)", glass: "rgba(10,132,255,0.6)" },
+  pink:   { accent: "#FF4D7E", glow: "rgba(255,77,126,0.35)",  dim: "rgba(255,77,126,0.15)",  border: "rgba(255,77,126,0.28)", glass: "rgba(255,77,126,0.6)" },
+  green:  { accent: "#3DD68C", glow: "rgba(61,214,140,0.35)",  dim: "rgba(61,214,140,0.15)",  border: "rgba(61,214,140,0.28)", glass: "rgba(61,214,140,0.6)" },
+  purple: { accent: "#C778DD", glow: "rgba(199,120,221,0.35)", dim: "rgba(199,120,221,0.15)", border: "rgba(199,120,221,0.28)", glass: "rgba(199,120,221,0.6)" },
+  teal:   { accent: "#38C4E0", glow: "rgba(56,196,224,0.35)",  dim: "rgba(56,196,224,0.15)",  border: "rgba(56,196,224,0.28)", glass: "rgba(56,196,224,0.6)" },
 };
 
 const state = {
@@ -1506,6 +1506,7 @@ function applyAccent(name) {
   root.setProperty("--accent", a.accent);
   root.setProperty("--accent-glow", a.glow);
   root.setProperty("--accent-dim", a.dim);
+  root.setProperty("--accent-glass", a.glass);
   root.setProperty("--border-hi", a.border);
   document.querySelectorAll(".swatch").forEach((s) => s.classList.toggle("on", s.dataset.accent === name));
 }
