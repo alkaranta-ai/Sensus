@@ -59,40 +59,40 @@
     <section class="controls glass-panel" aria-label="Filtros de búsqueda">
       <h2 class="section-title">Categorías</h2>
       <div class="category-grid" id="categoryChips" role="group" aria-label="Categorías">
-        <button class="cat-card" data-cat="bar" data-color="bar">
+        <button class="cat-card" data-cat="bar" data-color="bar" aria-pressed="false">
           <span class="cat-icon">🍸</span><span class="cat-label">Bar</span>
         </button>
-        <button class="cat-card" data-cat="cafe" data-color="cafe">
+        <button class="cat-card" data-cat="cafe" data-color="cafe" aria-pressed="false">
           <span class="cat-icon">☕</span><span class="cat-label">Café</span>
         </button>
-        <button class="cat-card" data-cat="parrilla" data-color="parrilla">
+        <button class="cat-card" data-cat="parrilla" data-color="parrilla" aria-pressed="false">
           <span class="cat-icon">🔥</span><span class="cat-label">Parrilla</span>
         </button>
-        <button class="cat-card" data-cat="restaurante" data-color="restaurante">
+        <button class="cat-card" data-cat="restaurante" data-color="restaurante" aria-pressed="false">
           <span class="cat-icon">🍽</span><span class="cat-label">Resto</span>
         </button>
-        <button class="cat-card" data-cat="pizza" data-color="pizza">
+        <button class="cat-card" data-cat="pizza" data-color="pizza" aria-pressed="false">
           <span class="cat-icon">🍕</span><span class="cat-label">Pizza</span>
         </button>
-        <button class="cat-card" data-cat="heladeria" data-color="heladeria">
+        <button class="cat-card" data-cat="heladeria" data-color="heladeria" aria-pressed="false">
           <span class="cat-icon">🍦</span><span class="cat-label">Heladería</span>
         </button>
-        <button class="cat-card" data-cat="panaderia" data-color="panaderia">
+        <button class="cat-card" data-cat="panaderia" data-color="panaderia" aria-pressed="false">
           <span class="cat-icon">🥐</span><span class="cat-label">Panadería</span>
         </button>
-        <button class="cat-card" data-cat="farmacia" data-color="farmacia">
+        <button class="cat-card" data-cat="farmacia" data-color="farmacia" aria-pressed="false">
           <span class="cat-icon">💊</span><span class="cat-label">Farmacia</span>
         </button>
-        <button class="cat-card" data-cat="supermercado" data-color="supermercado">
+        <button class="cat-card" data-cat="supermercado" data-color="supermercado" aria-pressed="false">
           <span class="cat-icon">🛒</span><span class="cat-label">Súper</span>
         </button>
-        <button class="cat-card" data-cat="comida_rapida" data-color="comida_rapida">
+        <button class="cat-card" data-cat="comida_rapida" data-color="comida_rapida" aria-pressed="false">
           <span class="cat-icon">🍔</span><span class="cat-label">Rápida</span>
         </button>
-        <button class="cat-card" data-cat="estacion_servicio" data-color="estacion_servicio">
+        <button class="cat-card" data-cat="estacion_servicio" data-color="estacion_servicio" aria-pressed="false">
           <span class="cat-icon">⛽</span><span class="cat-label">Estación</span>
         </button>
-        <button class="cat-card" data-cat="kiosco" data-color="kiosco">
+        <button class="cat-card" data-cat="kiosco" data-color="kiosco" aria-pressed="false">
           <span class="cat-icon">🏪</span><span class="cat-label">Kiosco</span>
         </button>
       </div>
@@ -128,8 +128,8 @@
 
     <div class="view-toggle glass-panel" id="viewToggle" hidden>
       <div class="glass-thumb" id="viewToggleThumb" aria-hidden="true"></div>
-      <button class="toggle-btn active" data-view="list">Lista</button>
-      <button class="toggle-btn" data-view="map">Mapa</button>
+      <button class="toggle-btn active" data-view="list" aria-pressed="true">Lista</button>
+      <button class="toggle-btn" data-view="map" aria-pressed="false">Mapa</button>
     </div>
 
     <section class="results-toolbar glass-panel" id="resultsToolbar" hidden>
@@ -142,11 +142,12 @@
           <option value="name">Nombre</option>
           <option value="category">Categoría</option>
         </select>
-        <button class="chip-toggle" id="openNowToggle" type="button">🕒 Abierto ahora</button>
+        <button class="chip-toggle" id="openNowToggle" type="button" aria-pressed="false">🕒 Abierto ahora</button>
       </div>
     </section>
 
     <section class="status" id="resultsStatus" aria-live="polite" hidden></section>
+    <button class="refresh-results-btn" id="refreshResultsBtn" type="button" hidden>↻ Actualizar (estos resultados no son en vivo)</button>
 
     <section id="resultsView" class="results" hidden></section>
 
@@ -172,7 +173,7 @@
         <h2 class="section-title">Favoritos</h2>
         <p class="section-sub">Tus lugares guardados con ⭐</p>
       </div>
-      <button class="chip-toggle" id="compareToggleBtn" type="button" hidden>Comparar</button>
+      <button class="chip-toggle" id="compareToggleBtn" type="button" hidden aria-pressed="false">Comparar</button>
     </section>
     <section id="favoritesList" class="results"></section>
     <button class="compare-bar" id="compareBarBtn" type="button" hidden>Comparar (<span id="compareCount">0</span>)</button>
@@ -250,7 +251,7 @@
         <span class="menu-item-chevron">›</span>
       </button>
 
-      <button class="menu-item" id="menuDarkMode">
+      <button class="menu-item" id="menuDarkMode" role="switch" aria-checked="false">
         <span class="menu-item-icon">🌙</span>
         <span class="menu-item-text">
           <span class="menu-item-title">Modo oscuro</span>
@@ -267,12 +268,12 @@
         </span>
       </div>
       <div class="accent-swatches" id="accentSwatches">
-        <button class="swatch" data-accent="amber" style="--_sw:#F5A623" aria-label="Ámbar"></button>
-        <button class="swatch" data-accent="blue" style="--_sw:#0A84FF" aria-label="Azul"></button>
-        <button class="swatch" data-accent="pink" style="--_sw:#FF4D7E" aria-label="Rosa"></button>
-        <button class="swatch" data-accent="green" style="--_sw:#3DD68C" aria-label="Verde"></button>
-        <button class="swatch" data-accent="purple" style="--_sw:#C778DD" aria-label="Violeta"></button>
-        <button class="swatch" data-accent="teal" style="--_sw:#38C4E0" aria-label="Turquesa"></button>
+        <button class="swatch" data-accent="amber" style="--_sw:#F5A623" aria-label="Ámbar" aria-pressed="true"></button>
+        <button class="swatch" data-accent="blue" style="--_sw:#0A84FF" aria-label="Azul" aria-pressed="false"></button>
+        <button class="swatch" data-accent="pink" style="--_sw:#FF4D7E" aria-label="Rosa" aria-pressed="false"></button>
+        <button class="swatch" data-accent="green" style="--_sw:#3DD68C" aria-label="Verde" aria-pressed="false"></button>
+        <button class="swatch" data-accent="purple" style="--_sw:#C778DD" aria-label="Violeta" aria-pressed="false"></button>
+        <button class="swatch" data-accent="teal" style="--_sw:#38C4E0" aria-label="Turquesa" aria-pressed="false"></button>
       </div>
 
       <button class="menu-item" id="menuAbout">
@@ -291,7 +292,7 @@
 <!-- ================= DOCK INFERIOR ================= -->
 <nav class="dock glass-panel" id="dock" aria-label="Navegación principal">
   <div class="glass-thumb" id="dockThumb" aria-hidden="true"></div>
-  <button class="dock-item active" data-view="inicio">
+  <button class="dock-item active" data-view="inicio" aria-current="page">
     <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M4 11.5L12 4L20 11.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10V20H18V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span>Inicio</span>
   </button>
