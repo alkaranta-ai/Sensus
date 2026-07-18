@@ -1060,22 +1060,9 @@ body.dark {
   .sheet { border-radius: 28px; margin-bottom: 24px; }
 }
 
-/* ─── Fila de controles: buscar + guardar búsqueda ─── */
+/* ─── Fila de controles: buscar ─── */
 .controls-row { display: flex; gap: 8px; align-items: stretch; }
 .controls-row .search-btn { flex: 1; }
-.save-search-btn {
-  flex-shrink: 0;
-  width: 52px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--ink);
-  font-size: 1.15rem;
-  cursor: pointer;
-  transition: transform 0.1s, border-color 0.15s;
-}
-.save-search-btn:active { transform: scale(0.92); }
-.save-search-btn:hover { border-color: var(--border-hi); }
 
 /* ─── Sugerencia del día ─── */
 .suggestion-card {

@@ -172,7 +172,6 @@ const els = {
   savedSearchesTitle: document.getElementById("savedSearchesTitle"),
   favoritesList: document.getElementById("favoritesList"),
 
-  saveSearchBtn: document.getElementById("saveSearchBtn"),
   suggestionBtn: document.getElementById("suggestionBtn"),
   suggestionSub: document.getElementById("suggestionSub"),
 
@@ -186,7 +185,6 @@ const els = {
 
   menuClearHistory: document.getElementById("menuClearHistory"),
   menuShareWhatsapp: document.getElementById("menuShareWhatsapp"),
-  menuShareTelegram: document.getElementById("menuShareTelegram"),
   menuCopyLink: document.getElementById("menuCopyLink"),
   menuCar: document.getElementById("menuCar"),
   menuCarTitle: document.getElementById("menuCarTitle"),
@@ -1106,21 +1104,6 @@ els.savedSearchesList.addEventListener("click", (e) => {
   if (!s) return;
   runSearch({ cats: s.cats, radius: s.radius });
 });
-if (els.saveSearchBtn) {
-  els.saveSearchBtn.addEventListener("click", () => {
-    const name = prompt("¿Cómo querés llamar a esta búsqueda? (ej: Salida con amigos)");
-    if (!name || !name.trim()) return;
-    state.savedSearches.unshift({
-      id: Date.now(),
-      name: name.trim(),
-      cats: [...state.selected],
-      radius: state.radius,
-    });
-    saveSavedSearchesList();
-    showToast("Búsqueda guardada 💾");
-  });
-}
-
 // ---------- Configuración (radio/categorías default, orden, accento) ----------
 function loadSettings() {
   try {
@@ -1451,14 +1434,6 @@ els.menuClearHistory.addEventListener("click", () => {
 });
 
 els.menuShareWhatsapp.addEventListener("click", shareWhatsApp);
-
-if (els.menuShareTelegram) {
-  els.menuShareTelegram.addEventListener("click", () => {
-    const text = buildShareText();
-    const url = `https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank", "noopener");
-  });
-}
 
 if (els.menuCopyLink) {
   els.menuCopyLink.addEventListener("click", async () => {
