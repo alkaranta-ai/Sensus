@@ -1947,7 +1947,8 @@ async function shareWhatsApp() {
 
 // ---------- Modo oscuro ----------
 function loadDarkPreference() {
-  return localStorage.getItem(DARK_KEY) === "1";
+  const v = localStorage.getItem(DARK_KEY);
+  return v === null ? true : v === "1"; // sin preferencia guardada → arranca en oscuro
 }
 
 function setDarkMode(on) {
