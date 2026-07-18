@@ -77,11 +77,55 @@ const CATEGORY_DEFS = {
     badgeClass: "comida_rapida",
     filters: [`node["amenity"="fast_food"](around:RADIUS,LAT,LON);`],
   },
+  cajero: {
+    label: "Cajero",
+    icon: "🏧",
+    badgeClass: "cajero",
+    filters: [`node["amenity"="atm"](around:RADIUS,LAT,LON);`],
+  },
+  estacion_servicio: {
+    label: "Estación",
+    icon: "⛽",
+    badgeClass: "estacion_servicio",
+    filters: [`node["amenity"="fuel"](around:RADIUS,LAT,LON);`],
+  },
+  kiosco: {
+    label: "Kiosco",
+    icon: "🏪",
+    badgeClass: "kiosco",
+    filters: [`node["shop"="kiosk"](around:RADIUS,LAT,LON);`, `node["shop"="convenience"]["name"](around:RADIUS,LAT,LON);`],
+  },
+  veterinaria: {
+    label: "Vet.",
+    icon: "🐾",
+    badgeClass: "veterinaria",
+    filters: [`node["amenity"="veterinary"](around:RADIUS,LAT,LON);`],
+  },
 };
+
+// Nota: OSM no distingue "farmacia de turno" (guardia) — ese dato no está
+// mapeado de forma estándar en ningún país, así que no se puede filtrar
+// automáticamente. Mostramos todas las farmacias; el usuario puede fijarse
+// el cartel de turno en el lugar.
 
 const HISTORY_KEY = "cerca_history_v1";
 const DARK_KEY = "cerca_dark_v1";
+const FAVORITES_KEY = "cerca_favorites_v1";
+const NOTES_KEY = "cerca_notes_v1";
+const SAVED_SEARCHES_KEY = "cerca_saved_searches_v1";
+const SETTINGS_KEY = "cerca_settings_v1";
+const CAR_KEY = "cerca_car_v1";
+const SUGGESTION_KEY = "cerca_suggestion_v1";
 const HISTORY_LIMIT = 30;
+
+const ACCENTS = {
+  amber:  { accent: "#F5A623", glow: "rgba(245,166,35,0.35)", dim: "rgba(245,166,35,0.15)", border: "rgba(245,166,35,0.28)" },
+  blue:   { accent: "#0A84FF", glow: "rgba(10,132,255,0.35)",  dim: "rgba(10,132,255,0.15)",  border: "rgba(10,132,255,0.28)" },
+  pink:   { accent: "#FF4D7E", glow: "rgba(255,77,126,0.35)",  dim: "rgba(255,77,126,0.15)",  border: "rgba(255,77,126,0.28)" },
+  green:  { accent: "#3DD68C", glow: "rgba(61,214,140,0.35)",  dim: "rgba(61,214,140,0.15)",  border: "rgba(61,214,140,0.28)" },
+  purple: { accent: "#C778DD", glow: "rgba(199,120,221,0.35)", dim: "rgba(199,120,221,0.15)", border: "rgba(199,120,221,0.28)" },
+  teal:   { accent: "#38C4E0", glow: "rgba(56,196,224,0.35)",  dim: "rgba(56,196,224,0.15)",  border: "rgba(56,196,224,0.28)" },
+};
 
 const state = {
   selected: new Set(),
@@ -89,11 +133,20 @@ const state = {
   userLat: null,
   userLon: null,
   results: [],
+  filteredResults: [],
   view: "list",
   map: null,
   markersLayer: null,
+  clusterLayer: null,
   activeTab: "inicio",
   history: [],
+  favorites: [],
+  notes: {},
+  savedSearches: [],
+  settings: { defaultRadius: null, defaultCats: null, accent: "amber", sortBy: "dist", openNowOnly: false },
+  searchText: "",
+  car: null,
+  mapCatFilter: new Set(),
 };
 
 const els = {
@@ -109,18 +162,39 @@ const els = {
 
   dock: document.getElementById("dock"),
   historyBadge: document.getElementById("historyBadge"),
+  favBadge: document.getElementById("favBadge"),
   viewInicio: document.getElementById("view-inicio"),
   viewBusquedas: document.getElementById("view-busquedas"),
+  viewFavoritos: document.getElementById("view-favoritos"),
   viewMenu: document.getElementById("view-menu"),
   historyList: document.getElementById("historyList"),
+  savedSearchesList: document.getElementById("savedSearchesList"),
+  savedSearchesTitle: document.getElementById("savedSearchesTitle"),
+  favoritesList: document.getElementById("favoritesList"),
+
+  saveSearchBtn: document.getElementById("saveSearchBtn"),
+  suggestionBtn: document.getElementById("suggestionBtn"),
+  suggestionSub: document.getElementById("suggestionSub"),
+
+  resultsToolbar: document.getElementById("resultsToolbar"),
+  searchText: document.getElementById("searchText"),
+  sortSelect: document.getElementById("sortSelect"),
+  openNowToggle: document.getElementById("openNowToggle"),
+  mapCatFilter: document.getElementById("mapCatFilter"),
 
   menuClearHistory: document.getElementById("menuClearHistory"),
   menuShareWhatsapp: document.getElementById("menuShareWhatsapp"),
+  menuShareTelegram: document.getElementById("menuShareTelegram"),
+  menuCopyLink: document.getElementById("menuCopyLink"),
+  menuCar: document.getElementById("menuCar"),
+  menuCarTitle: document.getElementById("menuCarTitle"),
+  menuCarDesc: document.getElementById("menuCarDesc"),
   menuDarkMode: document.getElementById("menuDarkMode"),
   darkModeToggle: document.getElementById("darkModeToggle"),
   menuAbout: document.getElementById("menuAbout"),
   aboutOverlay: document.getElementById("aboutOverlay"),
   aboutClose: document.getElementById("aboutClose"),
+  accentSwatches: document.getElementById("accentSwatches"),
   toast: document.getElementById("toast"),
 
   sheetOverlay: document.getElementById("placeSheetOverlay"),
@@ -157,9 +231,11 @@ function switchTab(tab) {
   });
   els.viewInicio.hidden = tab !== "inicio";
   els.viewBusquedas.hidden = tab !== "busquedas";
+  els.viewFavoritos.hidden = tab !== "favoritos";
   els.viewMenu.hidden = tab !== "menu";
 
-  if (tab === "busquedas") renderHistory();
+  if (tab === "busquedas") { renderHistory(); renderSavedSearches(); }
+  if (tab === "favoritos") renderFavorites();
   if (tab === "inicio" && state.view === "map") {
     setTimeout(() => state.map && state.map.invalidateSize(), 50);
   }
@@ -223,7 +299,14 @@ async function runSearch(overrides) {
     const elements = await queryOverpass(cats, state.userLat, state.userLon, state.radius);
 
     state.results = buildResults(elements, cats);
+    state.mapCatFilter = new Set(cats);
+    if (els.searchText) els.searchText.value = "";
+    state.searchText = "";
     renderResults();
+
+    state.settings.defaultRadius = state.radius;
+    state.settings.defaultCats = cats;
+    saveSettings();
 
     addHistoryEntry({
       ts: Date.now(),
@@ -341,6 +424,7 @@ function buildResults(elements, cats) {
       category,
       address: buildAddress(tags),
       contact: buildContact(tags),
+      rating: buildRating(tags),
     });
   });
 
@@ -397,8 +481,76 @@ function classify(tags, cats) {
   if (amenity === "pharmacy") return "farmacia";
   if (shop === "supermarket" || shop === "convenience") return "supermercado";
   if (amenity === "fast_food") return "comida_rapida";
+  if (amenity === "atm") return "cajero";
+  if (amenity === "fuel") return "estacion_servicio";
+  if (shop === "kiosk") return "kiosco";
+  if (amenity === "veterinary") return "veterinaria";
+  if (shop === "convenience") return "kiosco";
   if (amenity === "restaurant") return "restaurante";
   return "restaurante";
+}
+
+// Rating/reseña si está mapeado en OSM (poco frecuente, pero existe)
+function buildRating(tags) {
+  const raw = tags.stars || tags.rating || tags["review:stars"];
+  if (!raw) return null;
+  const n = parseFloat(String(raw).replace(",", "."));
+  if (Number.isNaN(n)) return null;
+  return Math.max(0, Math.min(5, n));
+}
+
+// ---------- Horarios: parser simple de opening_hours (OSM) ----------
+const DOW_MAP = { mo: 1, tu: 2, we: 3, th: 4, fr: 5, sa: 6, su: 0 };
+function isOpenNow(openingHours, now = new Date()) {
+  if (!openingHours) return null; // sin dato: no filtramos
+  const raw = openingHours.trim();
+  if (/24\/7/i.test(raw)) return true;
+  const day = now.getDay();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+
+  // Separa por ";" y evalúa cada regla; la última regla que matchea el día manda.
+  const rules = raw.split(";").map((r) => r.trim()).filter(Boolean);
+  let result = null;
+  for (const rule of rules) {
+    const m = rule.match(/^([a-zA-Z,\-]+)?\s*(.*)$/);
+    if (!m) continue;
+    const dowPart = m[1];
+    const rest = m[2] || "";
+    if (/off|closed/i.test(rest) && !/\d/.test(rest)) {
+      if (!dowPart || matchesDow(dowPart, day)) result = false;
+      continue;
+    }
+    if (!dowPart || matchesDow(dowPart, day)) {
+      const ranges = rest.match(/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/g);
+      if (!ranges) continue;
+      const open = ranges.some((r) => {
+        const [start, end] = r.split("-").map((t) => t.trim());
+        const [sh, sm] = start.split(":").map(Number);
+        const [eh, em] = end.split(":").map(Number);
+        const startMin = sh * 60 + sm;
+        let endMin = eh * 60 + em;
+        if (endMin <= startMin) endMin += 24 * 60; // cruza medianoche
+        return minutes >= startMin && minutes <= endMin;
+      });
+      result = open;
+    }
+  }
+  return result; // null = no se pudo determinar (no filtra)
+}
+
+function matchesDow(dowPart, day) {
+  if (!dowPart) return true;
+  const parts = dowPart.toLowerCase().split(",");
+  return parts.some((p) => {
+    if (p.includes("-")) {
+      const [a, b] = p.split("-");
+      const da = DOW_MAP[a], db = DOW_MAP[b];
+      if (da == null || db == null) return false;
+      if (da <= db) return day >= da && day <= db;
+      return day >= da || day <= db; // rango que cruza la semana (ej. Fr-Su... raro)
+    }
+    return DOW_MAP[p] === day;
+  });
 }
 
 function buildAddress(tags) {
@@ -428,9 +580,40 @@ function formatDistance(m, isSlider = false) {
 }
 
 // ---------- Render ----------
+function applyFiltersAndSort() {
+  let list = state.results.slice();
+
+  if (state.searchText) {
+    const q = state.searchText.toLowerCase();
+    list = list.filter((p) => p.name.toLowerCase().includes(q));
+  }
+
+  if (state.settings.openNowOnly) {
+    list = list.filter((p) => isOpenNow(p.contact && p.contact.opening) !== false);
+  }
+
+  const sortBy = state.settings.sortBy || "dist";
+  if (sortBy === "name") {
+    list.sort((a, b) => a.name.localeCompare(b.name, "es"));
+  } else if (sortBy === "category") {
+    list.sort((a, b) => {
+      const la = (CATEGORY_DEFS[a.category] || {}).label || a.category;
+      const lb = (CATEGORY_DEFS[b.category] || {}).label || b.category;
+      return la.localeCompare(lb, "es") || a.dist - b.dist;
+    });
+  } else {
+    list.sort((a, b) => a.dist - b.dist);
+  }
+
+  state.filteredResults = list;
+  return list;
+}
+
 function renderResults() {
   els.viewToggle.hidden = false;
+  els.resultsToolbar.hidden = false;
   setView(state.view);
+  renderMapCatFilter();
 
   if (state.results.length === 0) {
     els.resultsView.innerHTML = `<div class="empty-state">No encontramos lugares en ese radio. Probá ampliar la distancia o cambiar las categorías.</div>`;
@@ -439,12 +622,24 @@ function renderResults() {
     return;
   }
 
-  setStatus(`${state.results.length} lugares encontrados`);
+  const list = applyFiltersAndSort();
 
-  els.resultsView.innerHTML = state.results
-    .map((p, idx) => {
+  if (list.length === 0) {
+    els.resultsView.innerHTML = `<div class="empty-state">Ningún resultado coincide con el filtro actual.</div>`;
+    setStatus(`${state.results.length} lugares encontrados · 0 visibles`);
+    updateMapMarkers();
+    return;
+  }
+
+  setStatus(list.length === state.results.length
+    ? `${state.results.length} lugares encontrados`
+    : `${list.length} de ${state.results.length} lugares`);
+
+  els.resultsView.innerHTML = list
+    .map((p) => {
       const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
       const c = p.contact || {};
+      const isFav = isFavorite(p.id);
       const iconRow = [
         c.phone ? "📞" : "",
         c.website ? "🌐" : "",
@@ -452,17 +647,19 @@ function renderResults() {
         c.facebook ? "👍" : "",
       ].filter(Boolean).join(" ");
       return `
-        <button class="place-card" type="button" data-idx="${idx}">
+        <button class="place-card" type="button" data-id="${p.id}">
           ${c.photo ? `<div class="place-thumb" style="background-image:url('${c.photo}')"></div>` : `<div class="place-badge ${def.badgeClass}">${def.icon}</div>`}
           <div class="place-info">
             <p class="place-name">${escapeHtml(p.name)}</p>
             <div class="place-meta">
               <span>${def.label}</span>
+              ${p.rating != null ? `<span class="place-rating">⭐ ${p.rating.toFixed(1)}</span>` : ""}
               ${p.address ? `<span>${escapeHtml(p.address)}</span>` : ""}
               ${iconRow ? `<span class="place-icons">${iconRow}</span>` : ""}
             </div>
           </div>
           <div class="place-dist">${formatDistance(p.dist)}</div>
+          <button class="fav-star ${isFav ? "on" : ""}" type="button" data-fav-id="${p.id}" aria-label="Favorito">${isFav ? "★" : "☆"}</button>
         </button>
       `;
     })
@@ -471,18 +668,55 @@ function renderResults() {
   updateMapMarkers();
 }
 
+function findPlaceById(id) {
+  return state.results.find((p) => String(p.id) === String(id))
+    || state.filteredResults.find((p) => String(p.id) === String(id));
+}
+
 // ---------- Ficha de detalle (bottom sheet) ----------
 els.resultsView.addEventListener("click", (e) => {
+  const star = e.target.closest(".fav-star");
+  if (star) {
+    e.stopPropagation();
+    const p = findPlaceById(star.dataset.favId);
+    if (p) toggleFavorite(p, star);
+    return;
+  }
   const card = e.target.closest(".place-card");
   if (!card) return;
-  const p = state.results[Number(card.dataset.idx)];
+  const p = findPlaceById(card.dataset.id);
   if (p) openPlaceSheet(p);
+});
+
+// ---------- Toolbar: texto, orden, abierto ahora ----------
+let searchTextTimer = null;
+els.searchText.addEventListener("input", () => {
+  clearTimeout(searchTextTimer);
+  searchTextTimer = setTimeout(() => {
+    state.searchText = els.searchText.value.trim();
+    renderResults();
+  }, 180);
+});
+
+els.sortSelect.addEventListener("change", () => {
+  state.settings.sortBy = els.sortSelect.value;
+  saveSettings();
+  renderResults();
+});
+
+els.openNowToggle.addEventListener("click", () => {
+  state.settings.openNowOnly = !state.settings.openNowOnly;
+  els.openNowToggle.classList.toggle("on", state.settings.openNowOnly);
+  saveSettings();
+  renderResults();
 });
 
 function openPlaceSheet(p) {
   const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
   const c = p.contact || {};
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`;
+  const openState = isOpenNow(c.opening);
+  const isFav = isFavorite(p.id);
 
   const actions = [];
   actions.push(`<a class="sheet-action primary" href="${mapsUrl}" target="_blank" rel="noopener"><span>🧭</span>Cómo llegar</a>`);
@@ -491,6 +725,7 @@ function openPlaceSheet(p) {
   if (c.instagram) actions.push(`<a class="sheet-action" href="${escapeHtml(c.instagram)}" target="_blank" rel="noopener"><span>📷</span>Instagram</a>`);
   if (c.facebook) actions.push(`<a class="sheet-action" href="${escapeHtml(c.facebook)}" target="_blank" rel="noopener"><span>👍</span>Facebook</a>`);
   actions.push(`<button class="sheet-action" id="sheetShareBtn" type="button"><span>📲</span>Compartir</button>`);
+  actions.push(`<button class="sheet-action" id="sheetShareCardBtn" type="button"><span>🖼️</span>Tarjeta</button>`);
 
   els.sheetContent.innerHTML = `
     ${c.photo
@@ -500,20 +735,38 @@ function openPlaceSheet(p) {
       <div class="place-badge ${def.badgeClass}">${def.icon}</div>
       <div class="sheet-title-wrap">
         <h3 class="sheet-title">${escapeHtml(p.name)}</h3>
-        <p class="sheet-subtitle">${def.label} · ${formatDistance(p.dist)}${p.address ? " · " + escapeHtml(p.address) : ""}</p>
+        <p class="sheet-subtitle">${def.label} · ${formatDistance(p.dist)}${p.address ? " · " + escapeHtml(p.address) : ""}${p.rating != null ? ` · <span class="sheet-rating">⭐ ${p.rating.toFixed(1)}</span>` : ""}</p>
       </div>
+      <button class="sheet-fav-star ${isFav ? "on" : ""}" id="sheetFavBtn" type="button" aria-label="Favorito">${isFav ? "★" : "☆"}</button>
     </div>
-    ${c.opening ? `<p class="sheet-hours">🕒 ${escapeHtml(c.opening)}</p>` : ""}
+    ${c.opening ? `<p class="sheet-hours">🕒 ${escapeHtml(c.opening)}${openState === true ? ' <span style="color:var(--c-farmacia)">· Abierto ahora</span>' : openState === false ? ' <span style="color:var(--c-parrilla)">· Cerrado ahora</span>' : ""}</p>` : ""}
     <div class="sheet-actions">${actions.join("")}</div>
     ${(!c.phone && !c.website && !c.instagram && !c.facebook) ? `<p class="sheet-empty-note">Este lugar todavía no tiene datos de contacto cargados en OpenStreetMap.</p>` : ""}
+    <div class="sheet-note-wrap">
+      <span class="sheet-note-label">Tu nota</span>
+      <textarea class="sheet-note-input" id="sheetNoteInput" placeholder="Ej: pedir la de fernet, cerrado los lunes…">${escapeHtml(getNote(p.id))}</textarea>
+    </div>
   `;
 
   els.sheetOverlay.hidden = false;
   requestAnimationFrame(() => els.sheetOverlay.classList.add("open"));
 
   const shareBtn = document.getElementById("sheetShareBtn");
-  if (shareBtn) {
-    shareBtn.addEventListener("click", () => sharePlace(p));
+  if (shareBtn) shareBtn.addEventListener("click", () => sharePlace(p));
+
+  const shareCardBtn = document.getElementById("sheetShareCardBtn");
+  if (shareCardBtn) shareCardBtn.addEventListener("click", () => sharePlaceCard(p));
+
+  const favBtn = document.getElementById("sheetFavBtn");
+  if (favBtn) favBtn.addEventListener("click", () => toggleFavorite(p, favBtn));
+
+  const noteInput = document.getElementById("sheetNoteInput");
+  if (noteInput) {
+    let noteTimer = null;
+    noteInput.addEventListener("input", () => {
+      clearTimeout(noteTimer);
+      noteTimer = setTimeout(() => setNote(p.id, noteInput.value), 300);
+    });
   }
 }
 
@@ -557,9 +810,10 @@ function initMapIfNeeded() {
   }).addTo(state.map);
   state.markersLayer = L.layerGroup().addTo(state.map);
   state.map.setView([state.userLat || 0, state.userLon || 0], 15);
+  state.map.on("zoomend", () => updateMapMarkers(false));
 }
 
-function updateMapMarkers() {
+function updateMapMarkers(fitBounds = true) {
   if (!state.userLat) return;
   initMapIfNeeded();
   state.markersLayer.clearLayers();
@@ -574,27 +828,515 @@ function updateMapMarkers() {
     .addTo(state.markersLayer)
     .bindPopup("<strong>Estás acá</strong>");
 
-  const bounds = [[state.userLat, state.userLon]];
-
-  state.results.forEach((p) => {
-    const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
-    const icon = L.divIcon({
+  if (state.car) {
+    const carIcon = L.divIcon({
       className: "",
-      html: `<div style="font-size:18px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));">${def.icon}</div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+      html: `<div style="font-size:18px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));">🚗</div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
     });
-    L.marker([p.lat, p.lon], { icon })
+    L.marker([state.car.lat, state.car.lon], { icon: carIcon })
       .addTo(state.markersLayer)
-      .bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${def.label} · ${formatDistance(p.dist)}`);
-    bounds.push([p.lat, p.lon]);
-  });
-
-  if (bounds.length > 1) {
-    state.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
-  } else {
-    state.map.setView([state.userLat, state.userLon], 15);
+      .bindPopup("<strong>Tu auto</strong>");
   }
+
+  const visible = state.results.filter((p) => state.mapCatFilter.size === 0 || state.mapCatFilter.has(p.category));
+  const bounds = [[state.userLat, state.userLon]];
+  visible.forEach((p) => bounds.push([p.lat, p.lon]));
+
+  renderClusteredMarkers(visible);
+
+  if (fitBounds) {
+    if (bounds.length > 1) {
+      state.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+    } else {
+      state.map.setView([state.userLat, state.userLon], 15);
+    }
+  }
+}
+
+// Clustering simple basado en distancia en píxeles de pantalla al zoom actual.
+function renderClusteredMarkers(points) {
+  if (!state.map || points.length === 0) return;
+  const zoom = state.map.getZoom();
+  const projected = points.map((p) => ({ p, pt: state.map.project([p.lat, p.lon], zoom) }));
+  const threshold = points.length > 8 ? 42 : 0; // solo agrupamos si hay bastantes resultados
+  const used = new Array(projected.length).fill(false);
+  const groups = [];
+
+  for (let i = 0; i < projected.length; i++) {
+    if (used[i]) continue;
+    const group = [projected[i]];
+    used[i] = true;
+    if (threshold > 0) {
+      for (let j = i + 1; j < projected.length; j++) {
+        if (used[j]) continue;
+        const dx = projected[i].pt.x - projected[j].pt.x;
+        const dy = projected[i].pt.y - projected[j].pt.y;
+        if (Math.sqrt(dx * dx + dy * dy) < threshold) {
+          group.push(projected[j]);
+          used[j] = true;
+        }
+      }
+    }
+    groups.push(group);
+  }
+
+  groups.forEach((group) => {
+    if (group.length === 1) {
+      const p = group[0].p;
+      const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="font-size:18px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));">${def.icon}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      L.marker([p.lat, p.lon], { icon })
+        .addTo(state.markersLayer)
+        .bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${def.label} · ${formatDistance(p.dist)}`);
+    } else {
+      const latSum = group.reduce((s, g) => s + g.p.lat, 0);
+      const lonSum = group.reduce((s, g) => s + g.p.lon, 0);
+      const center = [latSum / group.length, lonSum / group.length];
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="map-cluster">${group.length}</div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+      });
+      const marker = L.marker(center, { icon }).addTo(state.markersLayer);
+      marker.on("click", () => {
+        state.map.setView(center, Math.min(19, state.map.getZoom() + 2));
+      });
+    }
+  });
+}
+
+function renderMapCatFilter() {
+  if (!els.mapCatFilter) return;
+  const cats = [...new Set(state.results.map((p) => p.category))];
+  if (cats.length <= 1) {
+    els.mapCatFilter.innerHTML = "";
+    return;
+  }
+  els.mapCatFilter.innerHTML = cats
+    .map((cat) => {
+      const def = CATEGORY_DEFS[cat] || {};
+      const on = state.mapCatFilter.has(cat);
+      return `<button class="map-cat-chip ${on ? "on" : ""}" data-cat="${cat}" type="button">${def.icon || ""} ${def.label || cat}</button>`;
+    })
+    .join("");
+}
+
+if (els.mapCatFilter) {
+  els.mapCatFilter.addEventListener("click", (e) => {
+    const btn = e.target.closest(".map-cat-chip");
+    if (!btn) return;
+    const cat = btn.dataset.cat;
+    if (state.mapCatFilter.has(cat)) state.mapCatFilter.delete(cat);
+    else state.mapCatFilter.add(cat);
+    renderMapCatFilter();
+    updateMapMarkers(false);
+  });
+}
+
+// ---------- Favoritos ----------
+function loadFavorites() {
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function saveFavoritesList() {
+  try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(state.favorites)); } catch (e) {}
+}
+function isFavorite(id) {
+  return state.favorites.some((f) => String(f.id) === String(id));
+}
+function toggleFavorite(p, btnEl) {
+  const idx = state.favorites.findIndex((f) => String(f.id) === String(p.id));
+  if (idx >= 0) {
+    state.favorites.splice(idx, 1);
+    showToast("Sacado de favoritos");
+  } else {
+    state.favorites.unshift({
+      id: p.id, name: p.name, lat: p.lat, lon: p.lon,
+      category: p.category, address: p.address, contact: p.contact, rating: p.rating,
+      savedAt: Date.now(),
+    });
+    showToast("Agregado a favoritos ⭐");
+  }
+  saveFavoritesList();
+  updateFavBadge();
+  document.querySelectorAll(`[data-fav-id="${p.id}"]`).forEach((el) => {
+    const on = isFavorite(p.id);
+    el.classList.toggle("on", on);
+    el.textContent = on ? "★" : "☆";
+  });
+  const sheetFav = document.getElementById("sheetFavBtn");
+  if (sheetFav) {
+    const on = isFavorite(p.id);
+    sheetFav.classList.toggle("on", on);
+    sheetFav.textContent = on ? "★" : "☆";
+  }
+  if (state.activeTab === "favoritos") renderFavorites();
+}
+function updateFavBadge() {
+  const n = state.favorites.length;
+  els.favBadge.hidden = n === 0;
+  els.favBadge.textContent = n > 99 ? "99+" : String(n);
+}
+function renderFavorites() {
+  if (state.favorites.length === 0) {
+    els.favoritesList.innerHTML = `<div class="empty-favorites">Todavía no tenés lugares favoritos.<br>Tocá la ⭐ en cualquier lugar para guardarlo acá.</div>`;
+    return;
+  }
+  els.favoritesList.innerHTML = state.favorites
+    .map((p) => {
+      const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
+      const c = p.contact || {};
+      return `
+        <button class="place-card" type="button" data-fav-open="${p.id}">
+          ${c.photo ? `<div class="place-thumb" style="background-image:url('${c.photo}')"></div>` : `<div class="place-badge ${def.badgeClass}">${def.icon}</div>`}
+          <div class="place-info">
+            <p class="place-name">${escapeHtml(p.name)}</p>
+            <div class="place-meta">
+              <span>${def.label}</span>
+              ${p.rating != null ? `<span class="place-rating">⭐ ${p.rating.toFixed(1)}</span>` : ""}
+              ${p.address ? `<span>${escapeHtml(p.address)}</span>` : ""}
+              ${getNote(p.id) ? `<span>📝 ${escapeHtml(getNote(p.id))}</span>` : ""}
+            </div>
+          </div>
+          <button class="fav-star on" type="button" data-fav-id="${p.id}" aria-label="Quitar favorito">★</button>
+        </button>
+      `;
+    })
+    .join("");
+}
+els.favoritesList.addEventListener("click", (e) => {
+  const star = e.target.closest(".fav-star");
+  if (star) {
+    e.stopPropagation();
+    const p = state.favorites.find((f) => String(f.id) === String(star.dataset.favId));
+    if (p) toggleFavorite(p);
+    return;
+  }
+  const card = e.target.closest("[data-fav-open]");
+  if (!card) return;
+  const p = state.favorites.find((f) => String(f.id) === String(card.dataset.favOpen));
+  if (p) {
+    p.dist = state.userLat ? haversine(state.userLat, state.userLon, p.lat, p.lon) : 0;
+    openPlaceSheet(p);
+  }
+});
+
+// ---------- Notas por lugar ----------
+function loadNotes() {
+  try {
+    const raw = localStorage.getItem(NOTES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+function saveNotesMap() {
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(state.notes)); } catch (e) {}
+}
+function getNote(id) { return state.notes[id] || ""; }
+function setNote(id, text) {
+  if (text && text.trim()) state.notes[id] = text.trim();
+  else delete state.notes[id];
+  saveNotesMap();
+}
+
+// ---------- Búsquedas favoritas (guardadas con nombre) ----------
+function loadSavedSearches() {
+  try {
+    const raw = localStorage.getItem(SAVED_SEARCHES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+function saveSavedSearchesList() {
+  try { localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(state.savedSearches)); } catch (e) {}
+}
+function renderSavedSearches() {
+  if (state.savedSearches.length === 0) {
+    els.savedSearchesTitle.hidden = true;
+    els.savedSearchesList.innerHTML = "";
+    return;
+  }
+  els.savedSearchesTitle.hidden = false;
+  els.savedSearchesList.innerHTML = state.savedSearches
+    .map((s, idx) => {
+      const icons = (s.cats && s.cats.length ? s.cats : Object.keys(CATEGORY_DEFS))
+        .slice(0, 4).map((c) => (CATEGORY_DEFS[c] ? CATEGORY_DEFS[c].icon : "")).join(" ");
+      return `
+        <button class="history-card saved-search-card" data-saved-idx="${idx}">
+          <span class="history-icons">${icons || "🔎"}</span>
+          <span class="history-info">
+            <p class="history-title">${escapeHtml(s.name)}</p>
+            <span class="history-meta"><span>${formatDistance(s.radius, true)}</span></span>
+          </span>
+          <span class="history-replay" aria-hidden="true">↻</span>
+          <button class="saved-search-delete" type="button" data-saved-delete="${idx}" aria-label="Borrar">✕</button>
+        </button>
+      `;
+    })
+    .join("");
+}
+els.savedSearchesList.addEventListener("click", (e) => {
+  const del = e.target.closest("[data-saved-delete]");
+  if (del) {
+    e.stopPropagation();
+    state.savedSearches.splice(Number(del.dataset.savedDelete), 1);
+    saveSavedSearchesList();
+    renderSavedSearches();
+    showToast("Búsqueda guardada eliminada");
+    return;
+  }
+  const card = e.target.closest("[data-saved-idx]");
+  if (!card) return;
+  const s = state.savedSearches[Number(card.dataset.savedIdx)];
+  if (!s) return;
+  switchTab("inicio");
+  runSearch({ cats: s.cats, radius: s.radius });
+});
+if (els.saveSearchBtn) {
+  els.saveSearchBtn.addEventListener("click", () => {
+    const name = prompt("¿Cómo querés llamar a esta búsqueda? (ej: Salida con amigos)");
+    if (!name || !name.trim()) return;
+    state.savedSearches.unshift({
+      id: Date.now(),
+      name: name.trim(),
+      cats: [...state.selected],
+      radius: state.radius,
+    });
+    saveSavedSearchesList();
+    showToast("Búsqueda guardada 💾");
+  });
+}
+
+// ---------- Configuración (radio/categorías default, orden, accento) ----------
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    return raw ? { ...state.settings, ...JSON.parse(raw) } : state.settings;
+  } catch (e) { return state.settings; }
+}
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings)); } catch (e) {}
+}
+function applyAccent(name) {
+  const a = ACCENTS[name] || ACCENTS.amber;
+  const root = document.documentElement.style;
+  root.setProperty("--accent", a.accent);
+  root.setProperty("--accent-glow", a.glow);
+  root.setProperty("--accent-dim", a.dim);
+  root.setProperty("--border-hi", a.border);
+  document.querySelectorAll(".swatch").forEach((s) => s.classList.toggle("on", s.dataset.accent === name));
+}
+if (els.accentSwatches) {
+  els.accentSwatches.addEventListener("click", (e) => {
+    const btn = e.target.closest(".swatch");
+    if (!btn) return;
+    state.settings.accent = btn.dataset.accent;
+    applyAccent(state.settings.accent);
+    saveSettings();
+  });
+}
+
+// ---------- Dónde estacioné el auto ----------
+function loadCar() {
+  try {
+    const raw = localStorage.getItem(CAR_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function saveCar() {
+  try { localStorage.setItem(CAR_KEY, state.car ? JSON.stringify(state.car) : ""); } catch (e) {}
+}
+function updateCarMenuItem() {
+  if (!els.menuCarTitle) return;
+  if (state.car) {
+    els.menuCarTitle.textContent = "Ver dónde estacioné";
+    els.menuCarDesc.textContent = `Guardado ${formatRelativeTime(state.car.ts)}`;
+  } else {
+    els.menuCarTitle.textContent = "Guardar dónde estacioné";
+    els.menuCarDesc.textContent = "Marcá la ubicación de tu auto";
+  }
+}
+if (els.menuCar) {
+  els.menuCar.addEventListener("click", async () => {
+    if (!state.car) {
+      try {
+        const pos = await getPosition();
+        state.car = { lat: pos.coords.latitude, lon: pos.coords.longitude, ts: Date.now() };
+        saveCar();
+        updateCarMenuItem();
+        showToast("Guardamos dónde estacionaste 🚗");
+      } catch (err) {
+        showToast("No pudimos obtener tu ubicación");
+      }
+      return;
+    }
+    const dist = state.userLat ? haversine(state.userLat, state.userLon, state.car.lat, state.car.lon) : null;
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${state.car.lat},${state.car.lon}`;
+    els.sheetContent.innerHTML = `
+      <div class="sheet-header">
+        <div class="place-badge">🚗</div>
+        <div class="sheet-title-wrap">
+          <h3 class="sheet-title">Tu auto</h3>
+          <p class="sheet-subtitle">Guardado ${formatRelativeTime(state.car.ts)}${dist != null ? " · " + formatDistance(dist) : ""}</p>
+        </div>
+      </div>
+      <div class="sheet-actions">
+        <a class="sheet-action primary" href="${mapsUrl}" target="_blank" rel="noopener"><span>🧭</span>Cómo llegar</a>
+        <button class="sheet-action" id="carUpdateBtn" type="button"><span>📍</span>Actualizar</button>
+        <button class="sheet-action" id="carClearBtn" type="button"><span>🗑️</span>Borrar</button>
+      </div>
+    `;
+    els.sheetOverlay.hidden = false;
+    requestAnimationFrame(() => els.sheetOverlay.classList.add("open"));
+    document.getElementById("carUpdateBtn").addEventListener("click", async () => {
+      try {
+        const pos = await getPosition();
+        state.car = { lat: pos.coords.latitude, lon: pos.coords.longitude, ts: Date.now() };
+        saveCar();
+        updateCarMenuItem();
+        showToast("Ubicación del auto actualizada");
+        closePlaceSheet();
+      } catch (err) { showToast("No pudimos obtener tu ubicación"); }
+    });
+    document.getElementById("carClearBtn").addEventListener("click", () => {
+      state.car = null;
+      saveCar();
+      updateCarMenuItem();
+      showToast("Borramos la ubicación del auto");
+      closePlaceSheet();
+    });
+  });
+}
+
+// ---------- Sugerencia del día ----------
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+function loadCachedSuggestion() {
+  try {
+    const raw = localStorage.getItem(SUGGESTION_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && parsed.date === todayKey() ? parsed.place : null;
+  } catch (e) { return null; }
+}
+function saveCachedSuggestion(place) {
+  try { localStorage.setItem(SUGGESTION_KEY, JSON.stringify({ date: todayKey(), place })); } catch (e) {}
+}
+if (els.suggestionBtn) {
+  els.suggestionBtn.addEventListener("click", async () => {
+    const cached = loadCachedSuggestion();
+    if (cached) {
+      showSuggestionResult(cached);
+      return;
+    }
+    els.suggestionSub.textContent = "Buscando algo lindo cerca tuyo…";
+    try {
+      const pos = await getPosition();
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      const cats = Object.keys(CATEGORY_DEFS);
+      const cat = cats[Math.floor(Math.random() * cats.length)];
+      const elements = await queryOverpass([cat], lat, lon, 1500);
+      const tmpUserLat = state.userLat, tmpUserLon = state.userLon;
+      state.userLat = lat; state.userLon = lon;
+      const results = buildResults(elements, [cat]);
+      state.userLat = tmpUserLat; state.userLon = tmpUserLon;
+      if (results.length === 0) {
+        els.suggestionSub.textContent = "No encontramos nada cerca hoy. Probá de nuevo más tarde.";
+        return;
+      }
+      const pick = results[Math.floor(Math.random() * Math.min(results.length, 10))];
+      saveCachedSuggestion(pick);
+      showSuggestionResult(pick);
+    } catch (err) {
+      els.suggestionSub.textContent = "No pudimos obtener tu ubicación.";
+    }
+  });
+}
+function showSuggestionResult(p) {
+  const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
+  els.suggestionSub.textContent = `${def.icon} ${p.name} — ${def.label}, a ${formatDistance(p.dist)}. Tocá para ver más.`;
+  els.suggestionBtn.onclick = () => {
+    if (state.userLat) p.dist = haversine(state.userLat, state.userLon, p.lat, p.lon);
+    openPlaceSheet(p);
+  };
+}
+
+// ---------- Compartir tarjeta de lugar como imagen ----------
+async function sharePlaceCard(p) {
+  try {
+    const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
+    const canvas = document.createElement("canvas");
+    const W = 800, H = 450;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext("2d");
+
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, "#1A1916");
+    grad.addColorStop(1, "#0E0D0B");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = "#F5A623";
+    ctx.font = "70px sans-serif";
+    ctx.fillText(def.icon || "📍", 48, 130);
+
+    ctx.fillStyle = "#EDE8DC";
+    ctx.font = "bold 42px sans-serif";
+    wrapText(ctx, p.name, 48, 210, W - 96, 50);
+
+    ctx.fillStyle = "#928D83";
+    ctx.font = "28px sans-serif";
+    ctx.fillText(`${def.label} · ${formatDistance(p.dist)}${p.address ? " · " + p.address : ""}`, 48, 320);
+
+    ctx.fillStyle = "#F5A623";
+    ctx.font = "bold 24px sans-serif";
+    ctx.fillText("📍 Encontrado con Cerca", 48, H - 36);
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("no-blob");
+    const file = new File([blob], "lugar.png", { type: "image/png" });
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ title: p.name, files: [file] });
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${p.name.replace(/[^a-z0-9]+/gi, "_")}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showToast("Tarjeta descargada 🖼️");
+  } catch (err) {
+    console.error(err);
+    showToast("No pudimos generar la tarjeta");
+  }
+}
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(" ");
+  let line = "";
+  let curY = y;
+  for (const word of words) {
+    const test = line + word + " ";
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, x, curY);
+      line = word + " ";
+      curY += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  ctx.fillText(line, x, curY);
 }
 
 // ---------- Historial de búsquedas ----------
@@ -705,6 +1447,25 @@ els.menuClearHistory.addEventListener("click", () => {
 
 els.menuShareWhatsapp.addEventListener("click", shareWhatsApp);
 
+if (els.menuShareTelegram) {
+  els.menuShareTelegram.addEventListener("click", () => {
+    const text = buildShareText();
+    const url = `https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank", "noopener");
+  });
+}
+
+if (els.menuCopyLink) {
+  els.menuCopyLink.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showToast("Link copiado 🔗");
+    } catch (err) {
+      showToast("No pudimos copiar el link");
+    }
+  });
+}
+
 function buildShareText() {
   const appUrl = window.location.href;
   if (state.results.length > 0) {
@@ -800,6 +1561,36 @@ function showToast(msg) {
 state.history = loadHistory();
 updateHistoryBadge();
 setDarkMode(loadDarkPreference());
+
+state.favorites = loadFavorites();
+updateFavBadge();
+
+state.notes = loadNotes();
+
+state.savedSearches = loadSavedSearches();
+
+state.settings = loadSettings();
+applyAccent(state.settings.accent);
+if (els.sortSelect) els.sortSelect.value = state.settings.sortBy || "dist";
+if (els.openNowToggle) els.openNowToggle.classList.toggle("on", !!state.settings.openNowOnly);
+
+if (state.settings.defaultRadius) {
+  state.radius = state.settings.defaultRadius;
+  els.radius.value = state.radius;
+  els.radiusValue.textContent = formatDistance(state.radius, true);
+}
+if (state.settings.defaultCats && state.settings.defaultCats.length) {
+  state.selected = new Set(state.settings.defaultCats);
+  document.querySelectorAll(".cat-card").forEach((card) => {
+    card.classList.toggle("selected", state.selected.has(card.dataset.cat));
+  });
+}
+
+state.car = loadCar();
+updateCarMenuItem();
+
+const cachedSuggestion = loadCachedSuggestion();
+if (cachedSuggestion) showSuggestionResult(cachedSuggestion);
 
 // ---------- Service worker ----------
 if ("serviceWorker" in navigator) {

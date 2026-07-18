@@ -1,5 +1,24 @@
 # Cerca 📍
 
+## Novedades de esta versión
+
+- ⭐ **Favoritos** (pestaña propia) + 📝 **notas por lugar** ("pedir la de fernet", etc.)
+- **Orden de resultados**: distancia, nombre o categoría
+- 🕒 **Filtro "abierto ahora"** (parsea `opening_hours` de OSM)
+- **Búsqueda por texto** dentro de los resultados
+- 4 categorías nuevas: 🏧 Cajero, ⛽ Estación de servicio, 🏪 Kiosco, 🐾 Veterinaria
+  *(nota: "farmacia de turno" no se puede filtrar automáticamente — ese dato no está mapeado de forma estándar en OSM)*
+- 💾 **Búsquedas favoritas con nombre** (ej. "Salida con amigos"), separadas de "Recientes"
+- Radio y categorías **quedan como default** la próxima vez que abrís la app
+- 🎨 **Selector de color de acento** (6 opciones) en el Menú
+- 🎲 **Sugerencia del día**: un lugar al azar cerca tuyo, una vez por día
+- 🗺️ En el mapa: **clusters** de pines cuando hay muchos resultados juntos, y **filtro por categoría** tocando los chips de arriba del mapa
+- 🚗 **"Cerca del auto"**: guardá dónde estacionaste desde el Menú
+- 🖼️ **Compartir tarjeta** de un lugar como imagen (además del texto)
+- ✈️ Compartir por **Telegram** y 🔗 **copiar link**, además de WhatsApp
+- ⭐ Se muestra el **rating** (`stars`/`rating` de OSM) cuando el lugar lo tiene cargado
+
+
 App web instalable (PWA) para encontrar **bares, cafés, parrillas, restaurantes, pizzerías y heladerías** cerca tuyo usando el GPS del celular. No necesita backend ni API keys: usa la geolocalización del navegador + [OpenStreetMap / Overpass API](https://overpass-api.de/) (gratis).
 
 ## Cómo funciona

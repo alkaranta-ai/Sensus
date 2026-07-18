@@ -30,6 +30,10 @@
   --c-farmacia:     #3DD68C;
   --c-supermercado: #38C4E0;
   --c-comida_rapida:#7C6EF5;
+  --c-cajero:          #4FD1C5;
+  --c-estacion_servicio:#FF7A45;
+  --c-kiosco:          #FFD166;
+  --c-veterinaria:     #6BCB77;
 
   --radius-lg: 26px;
   --radius-md: 18px;
@@ -343,6 +347,10 @@ main {
 .cat-card[data-color="farmacia"]     { --_c: var(--c-farmacia); }
 .cat-card[data-color="supermercado"] { --_c: var(--c-supermercado); }
 .cat-card[data-color="comida_rapida"]{ --_c: var(--c-comida_rapida); }
+.cat-card[data-color="cajero"]            { --_c: var(--c-cajero); }
+.cat-card[data-color="estacion_servicio"] { --_c: var(--c-estacion_servicio); }
+.cat-card[data-color="kiosco"]            { --_c: var(--c-kiosco); }
+.cat-card[data-color="veterinaria"]       { --_c: var(--c-veterinaria); }
 
 /* ─── Fila de radio ─── */
 .radius-row {
@@ -565,6 +573,10 @@ input[type="range"]::-moz-range-thumb {
 .place-badge.farmacia    { box-shadow: 0 0 0 1px var(--c-farmacia), inset 0 0 12px rgba(61,214,140,0.15); }
 .place-badge.supermercado{ box-shadow: 0 0 0 1px var(--c-supermercado), inset 0 0 12px rgba(56,196,224,0.15); }
 .place-badge.comida_rapida{ box-shadow: 0 0 0 1px var(--c-comida_rapida), inset 0 0 12px rgba(124,110,245,0.15); }
+.place-badge.cajero            { box-shadow: 0 0 0 1px var(--c-cajero), inset 0 0 12px rgba(79,209,197,0.15); }
+.place-badge.estacion_servicio { box-shadow: 0 0 0 1px var(--c-estacion_servicio), inset 0 0 12px rgba(255,122,69,0.15); }
+.place-badge.kiosco            { box-shadow: 0 0 0 1px var(--c-kiosco), inset 0 0 12px rgba(255,209,102,0.15); }
+.place-badge.veterinaria       { box-shadow: 0 0 0 1px var(--c-veterinaria), inset 0 0 12px rgba(107,203,119,0.15); }
 
 .place-info { flex: 1; min-width: 0; }
 
@@ -1047,3 +1059,242 @@ body.dark {
   .category-grid { grid-template-columns: repeat(5, 1fr); }
   .sheet { border-radius: 28px; margin-bottom: 24px; }
 }
+
+/* ─── Fila de controles: buscar + guardar búsqueda ─── */
+.controls-row { display: flex; gap: 8px; align-items: stretch; }
+.controls-row .search-btn { flex: 1; }
+.save-search-btn {
+  flex-shrink: 0;
+  width: 52px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 1.15rem;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s;
+}
+.save-search-btn:active { transform: scale(0.92); }
+.save-search-btn:hover { border-color: var(--border-hi); }
+
+/* ─── Sugerencia del día ─── */
+.suggestion-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border: none;
+  cursor: pointer;
+  color: var(--ink);
+  transition: transform 0.1s;
+}
+.suggestion-card:active { transform: scale(0.98); }
+.suggestion-icon { font-size: 1.6rem; flex-shrink: 0; }
+.suggestion-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.suggestion-title { font-weight: 700; font-size: 0.88rem; }
+.suggestion-sub { font-size: 0.76rem; color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ─── Toolbar de resultados: buscar por texto, orden, abierto ahora ─── */
+.results-toolbar { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
+.search-text-row input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+}
+.search-text-row input:focus { outline: none; border-color: var(--border-hi); }
+.toolbar-row { display: flex; gap: 8px; align-items: center; }
+.sort-select {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+}
+.chip-toggle {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink-dim);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.chip-toggle.on {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ─── Estrella de favorito sobre la tarjeta ─── */
+.place-card { position: relative; }
+.fav-star {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.35);
+  color: var(--ink-faint);
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: transform 0.12s;
+}
+.fav-star:active { transform: scale(0.85); }
+.fav-star.on { color: var(--accent); }
+
+.sheet-fav-star {
+  border: none;
+  background: var(--surface-2);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.15rem;
+  color: var(--ink-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.sheet-fav-star.on { color: var(--accent); }
+
+.place-rating, .sheet-rating { color: var(--accent); font-size: 0.76rem; }
+
+/* ─── Notas propias por lugar ─── */
+.sheet-note-wrap { margin: 12px 2px 0; }
+.sheet-note-label { display: block; font-size: 0.74rem; color: var(--ink-dim); margin-bottom: 6px; font-weight: 600; }
+.sheet-note-input {
+  width: 100%;
+  min-height: 56px;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+}
+.sheet-note-input:focus { outline: none; border-color: var(--border-hi); }
+
+/* ─── Subtítulos de sección (Guardadas / Recientes) ─── */
+.subsection-title {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 18px 4px 8px;
+}
+.subsection-title:first-of-type { margin-top: 4px; }
+
+.saved-search-card { position: relative; }
+.saved-search-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.35);
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  cursor: pointer;
+  z-index: 2;
+}
+
+/* ─── Favoritos vacío ─── */
+.empty-favorites {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--ink-dim);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* ─── Selector de acento ─── */
+.menu-item-accent { cursor: default; }
+.menu-item-accent:hover { background: transparent; }
+.accent-swatches {
+  display: flex;
+  gap: 10px;
+  padding: 4px 16px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--_sw);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.swatch:active { transform: scale(0.88); }
+.swatch.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--_sw); }
+
+/* ─── Filtro de categorías sobre el mapa ─── */
+.map-cat-filter {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 500;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.map-cat-chip {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  color: var(--ink);
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.map-cat-chip.on { opacity: 1; }
+.map-cat-chip:active { transform: scale(0.9); }
+
+.map-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #1A1200;
+  font-weight: 800;
+  font-size: 0.85rem;
+  border: 2px solid rgba(255,255,255,0.5);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.45);
+}
+
+/* ─── Menú: item de auto con estado ─── */
+.menu-item.has-car .menu-item-icon { filter: none; }

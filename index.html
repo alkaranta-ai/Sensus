@@ -89,6 +89,18 @@
         <button class="cat-card" data-cat="comida_rapida" data-color="comida_rapida">
           <span class="cat-icon">🍔</span><span class="cat-label">Rápida</span>
         </button>
+        <button class="cat-card" data-cat="cajero" data-color="cajero">
+          <span class="cat-icon">🏧</span><span class="cat-label">Cajero</span>
+        </button>
+        <button class="cat-card" data-cat="estacion_servicio" data-color="estacion_servicio">
+          <span class="cat-icon">⛽</span><span class="cat-label">Estación</span>
+        </button>
+        <button class="cat-card" data-cat="kiosco" data-color="kiosco">
+          <span class="cat-icon">🏪</span><span class="cat-label">Kiosco</span>
+        </button>
+        <button class="cat-card" data-cat="veterinaria" data-color="veterinaria">
+          <span class="cat-icon">🐾</span><span class="cat-label">Vet.</span>
+        </button>
       </div>
 
       <div class="radius-row">
@@ -97,12 +109,23 @@
         <span class="radius-value mono" id="radiusValue">1000 m</span>
       </div>
 
-      <button id="searchBtn" class="search-btn">
-        <span class="btn-spinner" aria-hidden="true"></span>
-        <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2.2"/><path d="M21 21L16.5 16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-        <span id="searchBtnLabel">Buscar cerca mío</span>
-      </button>
+      <div class="controls-row">
+        <button id="searchBtn" class="search-btn">
+          <span class="btn-spinner" aria-hidden="true"></span>
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2.2"/><path d="M21 21L16.5 16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          <span id="searchBtnLabel">Buscar cerca mío</span>
+        </button>
+        <button id="saveSearchBtn" class="save-search-btn" type="button" title="Guardar esta combinación">💾</button>
+      </div>
     </section>
+
+    <button class="suggestion-card glass-panel" id="suggestionBtn" type="button">
+      <span class="suggestion-icon">🎲</span>
+      <span class="suggestion-text">
+        <span class="suggestion-title">Sugerencia del día</span>
+        <span class="suggestion-sub" id="suggestionSub">Tocá para descubrir un lugar al azar cerca tuyo</span>
+      </span>
+    </button>
 
     <section class="status" id="statusBox" aria-live="polite"></section>
 
@@ -111,9 +134,24 @@
       <button class="toggle-btn" data-view="map">Mapa</button>
     </div>
 
+    <section class="results-toolbar glass-panel" id="resultsToolbar" hidden>
+      <div class="search-text-row">
+        <input type="text" id="searchText" placeholder="Buscar por nombre…" autocomplete="off" />
+      </div>
+      <div class="toolbar-row">
+        <select id="sortSelect" class="sort-select">
+          <option value="dist">Distancia</option>
+          <option value="name">Nombre</option>
+          <option value="category">Categoría</option>
+        </select>
+        <button class="chip-toggle" id="openNowToggle" type="button">🕒 Abierto ahora</button>
+      </div>
+    </section>
+
     <section id="resultsView" class="results" hidden></section>
 
     <section id="mapView" class="map-wrap glass-panel" hidden>
+      <div class="map-cat-filter" id="mapCatFilter"></div>
       <div id="map"></div>
     </section>
   </section>
@@ -122,9 +160,21 @@
   <section id="view-busquedas" class="app-view" hidden>
     <section class="panel-header glass-panel">
       <h2 class="section-title">Búsquedas</h2>
-      <p class="section-sub">Volvé a ejecutar una búsqueda reciente con un toque</p>
+      <p class="section-sub">Volvé a ejecutar una búsqueda reciente o guardada con un toque</p>
     </section>
+    <h3 class="subsection-title" id="savedSearchesTitle" hidden>Guardadas</h3>
+    <section id="savedSearchesList" class="history-list"></section>
+    <h3 class="subsection-title">Recientes</h3>
     <section id="historyList" class="history-list"></section>
+  </section>
+
+  <!-- ================= VISTA: FAVORITOS ================= -->
+  <section id="view-favoritos" class="app-view" hidden>
+    <section class="panel-header glass-panel">
+      <h2 class="section-title">Favoritos</h2>
+      <p class="section-sub">Tus lugares guardados con ⭐</p>
+    </section>
+    <section id="favoritesList" class="results"></section>
   </section>
 
   <!-- ================= VISTA: MENÚ ================= -->
@@ -153,6 +203,33 @@
         <span class="menu-item-chevron">›</span>
       </button>
 
+      <button class="menu-item" id="menuShareTelegram">
+        <span class="menu-item-icon">✈️</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Compartir por Telegram</span>
+          <span class="menu-item-desc">Enviá tus resultados por Telegram</span>
+        </span>
+        <span class="menu-item-chevron">›</span>
+      </button>
+
+      <button class="menu-item" id="menuCopyLink">
+        <span class="menu-item-icon">🔗</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Copiar link</span>
+          <span class="menu-item-desc">Copiá el link de la app al portapapeles</span>
+        </span>
+        <span class="menu-item-chevron">›</span>
+      </button>
+
+      <button class="menu-item" id="menuCar">
+        <span class="menu-item-icon">🚗</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title" id="menuCarTitle">Guardar dónde estacioné</span>
+          <span class="menu-item-desc" id="menuCarDesc">Marcá la ubicación de tu auto</span>
+        </span>
+        <span class="menu-item-chevron">›</span>
+      </button>
+
       <button class="menu-item" id="menuDarkMode">
         <span class="menu-item-icon">🌙</span>
         <span class="menu-item-text">
@@ -161,6 +238,22 @@
         </span>
         <span class="menu-toggle" id="darkModeToggle" aria-hidden="true"></span>
       </button>
+
+      <div class="menu-item menu-item-accent">
+        <span class="menu-item-icon">🎨</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Color de acento</span>
+          <span class="menu-item-desc">Elegí el color principal de la app</span>
+        </span>
+      </div>
+      <div class="accent-swatches" id="accentSwatches">
+        <button class="swatch" data-accent="amber" style="--_sw:#F5A623" aria-label="Ámbar"></button>
+        <button class="swatch" data-accent="blue" style="--_sw:#0A84FF" aria-label="Azul"></button>
+        <button class="swatch" data-accent="pink" style="--_sw:#FF4D7E" aria-label="Rosa"></button>
+        <button class="swatch" data-accent="green" style="--_sw:#3DD68C" aria-label="Verde"></button>
+        <button class="swatch" data-accent="purple" style="--_sw:#C778DD" aria-label="Violeta"></button>
+        <button class="swatch" data-accent="teal" style="--_sw:#38C4E0" aria-label="Turquesa"></button>
+      </div>
 
       <button class="menu-item" id="menuAbout">
         <span class="menu-item-icon">ℹ️</span>
@@ -185,6 +278,11 @@
     <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="2"/><path d="M12 8V12.3L14.8 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span>Búsquedas</span>
     <span class="dock-badge" id="historyBadge" hidden>0</span>
+  </button>
+  <button class="dock-item" data-view="favoritos">
+    <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M12 3L14.6 9.1L21.2 9.6L16.2 13.9L17.8 20.4L12 16.9L6.2 20.4L7.8 13.9L2.8 9.6L9.4 9.1L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    <span>Favoritos</span>
+    <span class="dock-badge" id="favBadge" hidden>0</span>
   </button>
   <button class="dock-item" data-view="menu">
     <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M4 6H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 12H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 18H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
