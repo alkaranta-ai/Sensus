@@ -524,16 +524,31 @@ function showRadarStatus() {
   `;
 }
 
+function positionFoundCta() {
+  const wrap = document.getElementById("foundCtaWrap");
+  if (!wrap) { window.removeEventListener("resize", positionFoundCta); return; }
+  const target = els.dock.querySelector('[data-view="busquedas"]');
+  if (!target) return;
+  const rect = target.getBoundingClientRect();
+  wrap.style.left = `${rect.left + rect.width / 2}px`;
+  wrap.style.top = `${rect.top - 10}px`;
+}
+
 function showFoundStatus(count) {
   els.statusBox.classList.remove("error", "cached", "offline");
   els.statusBox.innerHTML = `
-    <button type="button" class="found-cta" id="foundCtaBtn">
-      <span class="found-cta-text"><span class="found-cta-emoji" aria-hidden="true">📍</span> ${count} lugar${count === 1 ? "" : "es"} encontrado${count === 1 ? "" : "s"}. ¡Mirá los resultados en <strong>Búsquedas</strong>!</span>
-      <span class="found-cta-arrow" aria-hidden="true">👇</span>
-    </button>
+    <div class="found-cta-wrap" id="foundCtaWrap">
+      <button type="button" class="found-cta" id="foundCtaBtn">
+        <span class="found-cta-text"><span class="found-cta-emoji" aria-hidden="true">📍</span> ${count} lugar${count === 1 ? "" : "es"} encontrado${count === 1 ? "" : "s"}. ¡Mirá los resultados en <strong>Búsquedas</strong>!</span>
+        <span class="found-cta-arrow" aria-hidden="true">👇</span>
+      </button>
+    </div>
   `;
   const btn = document.getElementById("foundCtaBtn");
   if (btn) btn.addEventListener("click", () => switchTab("busquedas"));
+  positionFoundCta();
+  window.removeEventListener("resize", positionFoundCta);
+  window.addEventListener("resize", positionFoundCta);
 }
 
 function setStatus(msg, variant) {
