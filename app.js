@@ -277,6 +277,9 @@ function switchTab(tab) {
   if (tab === "inicio" && state.view === "map") {
     setTimeout(() => state.map && state.map.invalidateSize(), 50);
   }
+  if (tab === "busquedas" && document.getElementById("foundCtaBtn")) {
+    setStatus("");
+  }
 }
 
 // ---------- UI: radio de búsqueda ----------
@@ -386,6 +389,9 @@ async function runSearch(overrides) {
     } else if (state.lastSearchWasOffline) {
       setStatus("Sin conexión: te mostramos tu última búsqueda guardada", "offline");
       els.refreshResultsBtn.hidden = false;
+    } else if (state.results.length > 0) {
+      showFoundStatus(state.results.length);
+      els.refreshResultsBtn.hidden = true;
     } else {
       setStatus("");
       els.refreshResultsBtn.hidden = true;
@@ -498,6 +504,19 @@ function showRadarStatus() {
     </div>
     <div class="locate-label">Buscando tu ubicación…</div>
   `;
+}
+
+function showFoundStatus(count) {
+  els.statusBox.classList.remove("error", "cached", "offline");
+  els.statusBox.innerHTML = `
+    <button type="button" class="found-cta" id="foundCtaBtn">
+      <span class="found-cta-emoji" aria-hidden="true">📍</span>
+      <span class="found-cta-text">${count} lugar${count === 1 ? "" : "es"} encontrado${count === 1 ? "" : "s"}. ¡Mirá los resultados en <strong>Búsquedas</strong>!</span>
+      <span class="found-cta-arrow" aria-hidden="true">👇</span>
+    </button>
+  `;
+  const btn = document.getElementById("foundCtaBtn");
+  if (btn) btn.addEventListener("click", () => switchTab("busquedas"));
 }
 
 function setStatus(msg, variant) {
