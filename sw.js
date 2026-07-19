@@ -1,9 +1,10 @@
-const CACHE_NAME = "cerca-cache-v4";
+const CACHE_NAME = "cerca-cache-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./chat.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -29,8 +30,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  // Nunca cachear llamadas a Overpass (datos en vivo)
-  if (request.url.includes("overpass")) return;
+  // Nunca cachear llamadas a Overpass (datos en vivo) ni al Worker de chat
+  if (request.url.includes("overpass") || request.url.includes("workers.dev")) return;
 
   // App shell: cache-first
   if (APP_SHELL.some((path) => request.url.endsWith(path.replace("./", "")))) {
