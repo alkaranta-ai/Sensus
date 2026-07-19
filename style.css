@@ -48,9 +48,9 @@
   /* ─── Liquid Glass (iOS 26) ─── */
   --glass-blur: 36px;
   --glass-sat: 220%;
-  --glass-bg: rgba(40, 37, 32, 0.36);
-  --glass-bg-strong: rgba(40, 37, 32, 0.54);
-  --glass-border: rgba(255,255,255,0.20);
+  --glass-bg: rgba(30, 28, 25, 0.78);
+  --glass-bg-strong: rgba(30, 28, 25, 0.88);
+  --glass-border: rgba(255,255,255,0.14);
   --glass-hi: rgba(255,255,255,0.42);
   --glass-shadow: 0 16px 48px -10px rgba(0,0,0,0.6), 0 1px 0 0 rgba(255,255,255,0.08) inset;
 
@@ -112,7 +112,7 @@ body {
   position: absolute;
   border-radius: 50%;
   filter: blur(100px);
-  opacity: 0.55;
+  opacity: 0.32;
   pointer-events: none;
 }
 .blob-a {
