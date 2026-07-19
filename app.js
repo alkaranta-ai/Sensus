@@ -15,80 +15,80 @@ const CATEGORY_DEFS = {
     label: "Bar",
     icon: "🍸",
     badgeClass: "bar",
-    filters: [`node["amenity"="bar"](around:RADIUS,LAT,LON);`, `node["amenity"="pub"](around:RADIUS,LAT,LON);`],
+    filters: [`nwr["amenity"="bar"](around:RADIUS,LAT,LON);`, `nwr["amenity"="pub"](around:RADIUS,LAT,LON);`],
   },
   cafe: {
     label: "Café",
     icon: "☕",
     badgeClass: "cafe",
-    filters: [`node["amenity"="cafe"](around:RADIUS,LAT,LON);`],
+    filters: [`nwr["amenity"="cafe"](around:RADIUS,LAT,LON);`],
   },
   parrilla: {
     label: "Parrilla",
     icon: "🔥",
     badgeClass: "parrilla",
     filters: [
-      `node["amenity"="restaurant"]["cuisine"~"steak_house|barbecue|grill|argentin", i](around:RADIUS,LAT,LON);`,
+      `nwr["amenity"="restaurant"]["cuisine"~"steak_house|barbecue|grill|argentin", i](around:RADIUS,LAT,LON);`,
     ],
   },
   restaurante: {
     label: "Restaurante",
     icon: "🍽",
     badgeClass: "restaurante",
-    filters: [`node["amenity"="restaurant"](around:RADIUS,LAT,LON);`],
+    filters: [`nwr["amenity"="restaurant"](around:RADIUS,LAT,LON);`],
   },
   pizza: {
     label: "Pizza",
     icon: "🍕",
     badgeClass: "pizza",
     filters: [
-      `node["amenity"~"restaurant|fast_food"]["cuisine"~"pizza", i](around:RADIUS,LAT,LON);`,
+      `nwr["amenity"~"restaurant|fast_food"]["cuisine"~"pizza", i](around:RADIUS,LAT,LON);`,
     ],
   },
   heladeria: {
     label: "Heladería",
     icon: "🍦",
     badgeClass: "heladeria",
-    filters: [`node["amenity"="ice_cream"](around:RADIUS,LAT,LON);`],
+    filters: [`nwr["amenity"="ice_cream"](around:RADIUS,LAT,LON);`],
   },
   panaderia: {
     label: "Panadería",
     icon: "🥐",
     badgeClass: "panaderia",
-    filters: [`node["shop"="bakery"](around:RADIUS,LAT,LON);`],
+    filters: [`nwr["shop"="bakery"](around:RADIUS,LAT,LON);`],
   },
   farmacia: {
     label: "Farmacia",
     icon: "💊",
     badgeClass: "farmacia",
-    filters: [`node["amenity"="pharmacy"](around:RADIUS,LAT,LON);`],
+    filters: [`nwr["amenity"="pharmacy"](around:RADIUS,LAT,LON);`],
   },
   supermercado: {
     label: "Súper",
     icon: "🛒",
     badgeClass: "supermercado",
     filters: [
-      `node["shop"="supermarket"](around:RADIUS,LAT,LON);`,
-      `node["shop"="convenience"](around:RADIUS,LAT,LON);`,
+      `nwr["shop"="supermarket"](around:RADIUS,LAT,LON);`,
+      `nwr["shop"="convenience"](around:RADIUS,LAT,LON);`,
     ],
   },
   comida_rapida: {
     label: "Rápida",
     icon: "🍔",
     badgeClass: "comida_rapida",
-    filters: [`node["amenity"="fast_food"](around:RADIUS,LAT,LON);`],
+    filters: [`nwr["amenity"="fast_food"](around:RADIUS,LAT,LON);`],
   },
   estacion_servicio: {
     label: "Estación",
     icon: "⛽",
     badgeClass: "estacion_servicio",
-    filters: [`node["amenity"="fuel"](around:RADIUS,LAT,LON);`],
+    filters: [`nwr["amenity"="fuel"](around:RADIUS,LAT,LON);`],
   },
   kiosco: {
     label: "Kiosco",
     icon: "🏪",
     badgeClass: "kiosco",
-    filters: [`node["shop"="kiosk"](around:RADIUS,LAT,LON);`, `node["shop"="convenience"]["name"](around:RADIUS,LAT,LON);`],
+    filters: [`nwr["shop"="kiosk"](around:RADIUS,LAT,LON);`, `nwr["shop"="convenience"]["name"](around:RADIUS,LAT,LON);`],
   },
 };
 
@@ -340,9 +340,16 @@ async function runSearch(overrides) {
   showRadarStatus();
 
   try {
-    const pos = await getPosition();
-    state.userLat = pos.coords.latitude;
-    state.userLon = pos.coords.longitude;
+    // Si el usuario eligió una dirección manual, la usamos; si no, GPS
+    let pos;
+    if (addrState.lat !== null && addrState.lon !== null) {
+      state.userLat = addrState.lat;
+      state.userLon = addrState.lon;
+    } else {
+      pos = await getPosition();
+      state.userLat = pos.coords.latitude;
+      state.userLon = pos.coords.longitude;
+    }
 
     els.searchBtnLabel.textContent = "Buscando lugares…";
 
@@ -634,6 +641,18 @@ async function queryOverpass(cats, lat, lon, radius) {
   }
 }
 
+// ---------- Resolver nombre de un lugar ----------
+// Prioridad: name > alt_name > brand > nombre de operador > etiqueta de categoría
+function resolveName(tags, category) {
+  if (tags.name) return tags.name;
+  if (tags.alt_name) return tags.alt_name;
+  if (tags.brand) return tags.brand;
+  if (tags.operator) return tags.operator;
+  // Último recurso: etiqueta legible de la categoría
+  const def = CATEGORY_DEFS[category];
+  return def ? def.label : "Lugar sin nombre";
+}
+
 // ---------- Procesar resultados ----------
 function buildResults(elements, cats) {
   const items = [];
@@ -649,7 +668,7 @@ function buildResults(elements, cats) {
     seen.add(key);
 
     const tags = el.tags || {};
-    const name = tags.name || "Sin nombre";
+    const name = resolveName(tags, classify(tags, cats));
     const category = classify(tags, cats);
     const dist = haversine(state.userLat, state.userLon, lat, lon);
 
@@ -1046,14 +1065,26 @@ function openSheetOverlay() {
 }
 
 function openPlaceSheet(p) {
+  // Notificación si el usuario está muy cerca de un favorito
+  if (isFavorite(p.id) && state.userLat && p.dist != null && p.dist <= 100) {
+    showToast(`¡Estás a ${Math.round(p.dist)} m de ${p.name}! 📍`);
+  }
   const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
   const c = p.contact || {};
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`;
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`;
+  const wazeUrl = `https://waze.com/ul?ll=${p.lat},${p.lon}&navigate=yes`;
+  // En iOS, geo: no abre Maps directamente desde el navegador; usamos la URL universal de Maps.
+  // En Android, geo: sí abre el selector de apps nativo.
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const nativeNavUrl = isAndroid
+    ? `geo:${p.lat},${p.lon}?q=${p.lat},${p.lon}(${encodeURIComponent(p.name)})`
+    : mapsUrl;
   const openState = isOpenNow(c.opening);
   const isFav = isFavorite(p.id);
 
   const actions = [];
-  actions.push(`<a class="sheet-action primary" href="${mapsUrl}" target="_blank" rel="noopener"><span>🧭</span>Cómo llegar</a>`);
+  actions.push(`<button class="sheet-action primary" id="sheetNavBtn" type="button"><span>🧭</span>Cómo llegar</button>`);
+  actions.push(`<a class="sheet-action" href="${wazeUrl}" target="_blank" rel="noopener"><span>🚗</span>Waze</a>`);
   if (c.phone) actions.push(`<a class="sheet-action" href="tel:${escapeHtml(c.phone.replace(/\s+/g, ""))}"><span>📞</span>Llamar</a>`);
   if (c.website) actions.push(`<a class="sheet-action" href="${escapeHtml(c.website)}" target="_blank" rel="noopener"><span>🌐</span>Web</a>`);
   if (c.instagram) actions.push(`<a class="sheet-action" href="${escapeHtml(c.instagram)}" target="_blank" rel="noopener"><span>📷</span>Instagram</a>`);
@@ -1093,6 +1124,13 @@ function openPlaceSheet(p) {
       if (el) el.textContent = " · " + addr;
     });
   }
+
+  const navBtn = document.getElementById("sheetNavBtn");
+  if (navBtn) navBtn.addEventListener("click", () => {
+    // En Android abrimos geo: para que el sistema muestre el selector de apps.
+    // En iOS abrimos Google Maps con indicaciones desde origen actual.
+    window.open(nativeNavUrl, "_blank", "noopener");
+  });
 
   const shareBtn = document.getElementById("sheetShareBtn");
   if (shareBtn) shareBtn.addEventListener("click", () => sharePlace(p));
@@ -2074,7 +2112,22 @@ async function shareWhatsApp() {
 // ---------- Modo oscuro ----------
 function loadDarkPreference() {
   const v = localStorage.getItem(DARK_KEY);
-  return v === null ? true : v === "1"; // sin preferencia guardada → arranca en oscuro
+  if (v !== null) return v === "1"; // el usuario eligió manualmente → respetamos
+  // Primera vez: seguimos la preferencia del sistema operativo
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return true;
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) return false;
+  return true; // sin dato del sistema → oscuro por defecto
+}
+
+// Listener para cambios en tiempo real del tema del sistema
+// (ej: el usuario cambia de claro a oscuro en el celular)
+if (window.matchMedia) {
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+    // Solo reaccionamos si el usuario no eligió manualmente
+    if (localStorage.getItem(DARK_KEY) === null) {
+      setDarkMode(e.matches);
+    }
+  });
 }
 
 function setDarkMode(on) {
@@ -2089,6 +2142,7 @@ function setDarkMode(on) {
 els.menuDarkMode.addEventListener("click", () => {
   const isOn = !document.body.classList.contains("dark");
   setDarkMode(isOn);
+  // Marcar que el usuario eligió manualmente (ya lo hace setDarkMode vía localStorage)
 });
 
 // ---------- Acerca de (modal) ----------
@@ -2141,6 +2195,200 @@ function showToast(msg) {
   }, 2200);
 }
 
+// ---------- Búsqueda por dirección (Nominatim autocomplete) ----------
+const elAddrInput = document.getElementById("addressInput");
+const elAddrSuggestions = document.getElementById("addressSuggestions");
+const elAddrClear = document.getElementById("addressClearBtn");
+
+// Estado de búsqueda por dirección
+const addrState = { lat: null, lon: null, label: "" };
+let addrTimer = null;
+let addrAbort = null;
+
+if (elAddrInput) {
+  elAddrInput.addEventListener("input", () => {
+    const q = elAddrInput.value.trim();
+    elAddrClear.hidden = !q;
+
+    // Si borraron todo, volvemos a usar GPS
+    if (!q) {
+      addrState.lat = null;
+      addrState.lon = null;
+      addrState.label = "";
+      elAddrSuggestions.hidden = true;
+      return;
+    }
+
+    clearTimeout(addrTimer);
+    addrTimer = setTimeout(() => fetchAddressSuggestions(q), 350);
+  });
+
+  elAddrInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      elAddrSuggestions.hidden = true;
+      elAddrInput.blur();
+    }
+  });
+}
+
+if (elAddrClear) {
+  elAddrClear.addEventListener("click", () => {
+    elAddrInput.value = "";
+    elAddrClear.hidden = true;
+    addrState.lat = null;
+    addrState.lon = null;
+    addrState.label = "";
+    elAddrSuggestions.hidden = true;
+    elAddrInput.focus();
+  });
+}
+
+async function fetchAddressSuggestions(q) {
+  if (addrAbort) addrAbort.abort();
+  addrAbort = new AbortController();
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&limit=5&countrycodes=ar&addressdetails=1&accept-language=es`;
+    const res = await fetch(url, {
+      headers: { "Accept-Language": "es" },
+      signal: addrAbort.signal,
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    renderAddressSuggestions(data);
+  } catch (e) {
+    if (e.name !== "AbortError") console.warn("Nominatim error", e);
+  }
+}
+
+function renderAddressSuggestions(results) {
+  if (!results || results.length === 0) {
+    elAddrSuggestions.hidden = true;
+    return;
+  }
+  elAddrSuggestions.hidden = false;
+  elAddrSuggestions.innerHTML = results
+    .map((r, i) => {
+      const display = r.display_name.split(",").slice(0, 3).join(", ");
+      return `<button class="addr-suggestion" type="button" data-lat="${r.lat}" data-lon="${r.lon}" data-label="${encodeURIComponent(display)}">${escapeHtml(display)}</button>`;
+    })
+    .join("");
+}
+
+if (elAddrSuggestions) {
+  elAddrSuggestions.addEventListener("click", (e) => {
+    const btn = e.target.closest(".addr-suggestion");
+    if (!btn) return;
+    const lat = parseFloat(btn.dataset.lat);
+    const lon = parseFloat(btn.dataset.lon);
+    const label = decodeURIComponent(btn.dataset.label);
+    addrState.lat = lat;
+    addrState.lon = lon;
+    addrState.label = label;
+    elAddrInput.value = label;
+    elAddrClear.hidden = false;
+    elAddrSuggestions.hidden = true;
+    elAddrInput.blur();
+    // Lanzar búsqueda automáticamente al elegir una sugerencia
+    runSearchFromAddress(lat, lon);
+  });
+}
+
+// Cierra sugerencias al hacer click afuera
+document.addEventListener("click", (e) => {
+  if (elAddrSuggestions && !elAddrSuggestions.contains(e.target) && e.target !== elAddrInput) {
+    elAddrSuggestions.hidden = true;
+  }
+});
+
+async function runSearchFromAddress(lat, lon) {
+  setStatus("");
+  els.searchBtn.disabled = true;
+  els.searchBtn.classList.add("loading");
+  els.searchBtnLabel.textContent = "Buscando lugares…";
+
+  state.userLat = lat;
+  state.userLon = lon;
+
+  const cats = state.selected.size > 0 ? [...state.selected] : Object.keys(CATEGORY_DEFS);
+  state.lastQuery = { cats, radius: state.radius };
+  state.lastSearchWasCache = false;
+  state.lastSearchWasOffline = false;
+
+  try {
+    showResultsSkeleton();
+    setStatus("Consultando OpenStreetMap…");
+    switchTab("busquedas");
+    const cacheKey = zoneCacheKey(lat, lon, state.radius, cats);
+    const cached = getZoneCacheEntry(cacheKey);
+    let elements;
+    if (cached) {
+      elements = cached.elements;
+      state.lastSearchWasCache = true;
+    } else {
+      elements = await queryOverpass(cats, lat, lon, state.radius);
+      setZoneCacheEntry(cacheKey, elements);
+      saveLastResult({ cats, radius: state.radius, lat, lon, elements });
+    }
+    state.results = buildResults(elements, cats);
+    state.mapCatFilter = new Set(cats);
+    state.renderedCount = RESULTS_PAGE_SIZE;
+    if (els.searchText) els.searchText.value = "";
+    state.searchText = "";
+    renderResults();
+    if (state.lastSearchWasCache) {
+      setStatus("Resultados desde caché", "cached");
+      els.refreshResultsBtn.hidden = false;
+    } else if (state.results.length > 0) {
+      showFoundStatus(state.results.length);
+      els.refreshResultsBtn.hidden = true;
+    } else {
+      setStatus("");
+    }
+    addHistoryEntry({ ts: Date.now(), cats, radius: state.radius, count: state.results.length, lat, lon });
+  } catch (err) {
+    console.error(err);
+    setStatus(errorMessage(err), "error");
+  } finally {
+    els.searchBtn.disabled = false;
+    els.searchBtn.classList.remove("loading");
+    els.searchBtnLabel.textContent = "Buscar cerca mío";
+  }
+}
+
+// ---------- Buscar en esta zona del mapa ----------
+const elSearchHereBtn = document.getElementById("searchHereBtn");
+let searchHereDebounce = null;
+
+function setupSearchHere() {
+  if (!state.map || !elSearchHereBtn) return;
+  state.map.on("moveend", () => {
+    // Solo mostramos el botón si el mapa se movió manualmente (no por flyToBounds automático)
+    if (state._mapAutoMove) return;
+    elSearchHereBtn.hidden = false;
+  });
+  state.map.on("movestart", () => {
+    // Si el movimiento lo inicia el código (flyTo/flyToBounds), lo marcamos
+    // Leaflet no distingue programático de usuario, pero podemos usar una bandera
+  });
+  elSearchHereBtn.addEventListener("click", () => {
+    const center = state.map.getCenter();
+    elSearchHereBtn.hidden = true;
+    runSearchFromAddress(center.lat, center.lng);
+  });
+}
+
+// Hook para marcar movimientos programáticos del mapa
+const _origFlyTo = L && L.Map && L.Map.prototype.flyTo;
+// El setup se llama después de que el mapa se inicializa
+const _origInitMap = initMapIfNeeded;
+function initMapIfNeeded() {
+  _origInitMap();
+  if (state.map && elSearchHereBtn && !state._searchHereSetup) {
+    state._searchHereSetup = true;
+    setupSearchHere();
+  }
+}
+
 // ---------- Init ----------
 state.history = loadHistory();
 updateHistoryBadge();
@@ -2166,14 +2414,18 @@ if (state.settings.defaultRadius) {
   els.radius.value = state.radius;
   els.radiusValue.textContent = formatDistance(state.radius, true);
 }
+const firstUseCats = ["bar", "cafe", "restaurante"];
 if (state.settings.defaultCats && state.settings.defaultCats.length) {
   state.selected = new Set(state.settings.defaultCats);
-  document.querySelectorAll(".cat-card").forEach((card) => {
-    const isSel = state.selected.has(card.dataset.cat);
-    card.classList.toggle("selected", isSel);
-    card.setAttribute("aria-pressed", String(isSel));
-  });
+} else {
+  // Primera vez: preseleccionamos las categorías más usadas
+  state.selected = new Set(firstUseCats);
 }
+document.querySelectorAll(".cat-card").forEach((card) => {
+  const isSel = state.selected.has(card.dataset.cat);
+  card.classList.toggle("selected", isSel);
+  card.setAttribute("aria-pressed", String(isSel));
+});
 
 state.car = loadCar();
 updateCarMenuItem();

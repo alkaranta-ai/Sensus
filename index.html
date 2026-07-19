@@ -97,6 +97,15 @@
         </button>
       </div>
 
+      <div class="address-search-row">
+        <div class="address-search-wrap">
+          <svg class="address-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2.2"/><path d="M21 21L16.5 16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          <input type="text" id="addressInput" placeholder="Buscar en otra zona… (ej: Palermo)" autocomplete="off" aria-label="Buscar por dirección o barrio" />
+          <button id="addressClearBtn" class="address-clear-btn" type="button" aria-label="Limpiar" hidden>✕</button>
+        </div>
+        <div id="addressSuggestions" class="address-suggestions" hidden></div>
+      </div>
+
       <div class="radius-row">
         <label for="radius">Radio</label>
         <input type="range" id="radius" min="300" max="5000" step="100" value="1000" />
@@ -153,6 +162,7 @@
 
     <section id="mapView" class="map-wrap glass-panel" hidden>
       <div class="map-cat-filter" id="mapCatFilter"></div>
+      <button id="searchHereBtn" class="search-here-btn" type="button" hidden>🔍 Buscar en esta zona</button>
       <div id="map"></div>
     </section>
 

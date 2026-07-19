@@ -1718,3 +1718,132 @@ body.dark {
 @media (prefers-reduced-motion: reduce) {
   .marker-enter { animation: none; }
 }
+
+/* ─── Búsqueda por dirección ─── */
+.address-search-row {
+  position: relative;
+  margin-bottom: 2px;
+}
+
+.address-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--frost-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 0 10px;
+  backdrop-filter: blur(var(--frost-blur));
+  -webkit-backdrop-filter: blur(var(--frost-blur));
+  transition: border-color 0.2s;
+}
+
+.address-search-wrap:focus-within {
+  border-color: var(--border-hi);
+}
+
+.address-search-icon {
+  color: var(--ink-dim);
+  flex-shrink: 0;
+}
+
+#addressInput {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  padding: 10px 0;
+}
+
+#addressInput::placeholder {
+  color: var(--ink-faint);
+}
+
+.address-clear-btn {
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 4px;
+  border-radius: 50%;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.address-clear-btn:hover { color: var(--ink); }
+
+.address-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  z-index: 200;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+}
+
+.addr-suggestion {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  text-align: left;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.addr-suggestion:last-child { border-bottom: none; }
+.addr-suggestion:hover, .addr-suggestion:focus {
+  background: var(--accent-dim);
+  outline: none;
+}
+
+/* ─── Botón "Buscar en esta zona" ─── */
+.search-here-btn {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.15s, box-shadow 0.15s;
+  animation: fadeInDown 0.25s ease;
+}
+
+.search-here-btn:hover {
+  transform: translateX(-50%) scale(1.04);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* El map-wrap ya tiene position:relative; el botón queda flotando encima */
+.map-wrap { position: relative; }
