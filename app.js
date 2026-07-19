@@ -511,6 +511,7 @@ function getPosition() {
 }
 
 function showRadarStatus() {
+  if (els.suggestionBtn) els.suggestionBtn.hidden = false;
   els.statusBox.innerHTML = `
     <div class="locate-anim" aria-hidden="true">
       <div class="locate-ring"></div>
@@ -536,6 +537,7 @@ function positionFoundCta() {
 
 function showFoundStatus(count) {
   els.statusBox.classList.remove("error", "cached", "offline");
+  if (els.suggestionBtn) els.suggestionBtn.hidden = true;
   els.statusBox.innerHTML = `
     <div class="found-cta-wrap" id="foundCtaWrap">
       <button type="button" class="found-cta" id="foundCtaBtn">
@@ -553,6 +555,7 @@ function showFoundStatus(count) {
 
 function setStatus(msg, variant) {
   els.statusBox.classList.remove("error", "cached", "offline");
+  if (els.suggestionBtn) els.suggestionBtn.hidden = false;
   if (variant) els.statusBox.classList.add(variant);
   if (variant === "cached") {
     els.statusBox.innerHTML = `<span aria-hidden="true">⚡</span><span>${escapeHtml(msg)}</span>`;

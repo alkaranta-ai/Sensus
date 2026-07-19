@@ -1490,6 +1490,7 @@ body.dark {
 .controls-row .search-btn { flex: 1; }
 
 /* ─── Sugerencia del día ─── */
+.suggestion-card[hidden] { display: none; }
 .suggestion-card {
   position: relative;
   display: flex;
