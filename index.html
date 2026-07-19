@@ -97,6 +97,14 @@
         </button>
       </div>
 
+      <div class="combos-section">
+        <div class="combos-header">
+          <h3 class="subsection-title combos-title">Combos</h3>
+          <button class="combo-add-btn" id="comboAddBtn" type="button">+ Combo</button>
+        </div>
+        <div class="combos-row" id="combosRow" role="group" aria-label="Combos de categorías"></div>
+      </div>
+
       <div class="address-search-row">
         <div class="address-search-wrap">
           <svg class="address-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2.2"/><path d="M21 21L16.5 16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
@@ -247,6 +255,15 @@
         <span class="menu-item-chevron">›</span>
       </button>
 
+      <button class="menu-item menu-item-danger" id="menuEraseAll">
+        <span class="menu-item-icon">🧹</span>
+        <span class="menu-item-text">
+          <span class="menu-item-title">Borrar todos mis datos</span>
+          <span class="menu-item-desc">Favoritos, notas, historial, combos y el auto — nada se manda a ningún servidor</span>
+        </span>
+        <span class="menu-item-chevron">›</span>
+      </button>
+
       <button class="menu-item" id="menuShareWhatsapp">
         <span class="menu-item-icon">📲</span>
         <span class="menu-item-text">
@@ -379,6 +396,17 @@
     <button class="sheet-close" id="sheetClose" aria-label="Cerrar">✕</button>
     <div id="sheetContent"></div>
   </div>
+</div>
+
+<!-- ================= BANNER DE INSTALACIÓN ================= -->
+<div class="install-banner glass-panel" id="installBanner" hidden>
+  <span class="install-banner-icon" aria-hidden="true">📲</span>
+  <span class="install-banner-text">
+    <strong>Instalá Cerca</strong>
+    <span>Acceso rápido desde tu pantalla de inicio, sin buscarla en el navegador</span>
+  </span>
+  <button class="install-banner-btn" id="installBannerBtn" type="button">Instalar</button>
+  <button class="install-banner-close" id="installBannerClose" type="button" aria-label="Cerrar">✕</button>
 </div>
 
 <!-- ================= TOAST ================= -->

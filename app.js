@@ -97,6 +97,14 @@ const CATEGORY_DEFS = {
 // automáticamente. Mostramos todas las farmacias; el usuario puede fijarse
 // el cartel de turno en el lugar.
 
+// Combos de categorías: atajos para no tener que tildar siempre las mismas
+// categorías. A diferencia de las "búsquedas favoritas", no fijan ubicación
+// ni radio — solo aplican una selección de categorías en Inicio.
+const DEFAULT_COMBOS = [
+  { id: "previa", name: "Previa", icon: "🍻", cats: ["bar", "kiosco"] },
+  { id: "domingo_familia", name: "Domingo con la familia", icon: "👨‍👩‍👧", cats: ["heladeria", "parrilla"] },
+];
+
 const HISTORY_KEY = "cerca_history_v1";
 const DARK_KEY = "cerca_dark_v1";
 const FAVORITES_KEY = "cerca_favorites_v1";
@@ -109,6 +117,16 @@ const ZONE_CACHE_KEY = "cerca_zone_cache_v1";
 const LAST_RESULT_KEY = "cerca_last_result_v1";
 const ONBOARDING_KEY = "cerca_onboarding_seen_v1";
 const HIDDEN_PLACES_KEY = "cerca_hidden_places_v1";
+const COMBOS_KEY = "cerca_combos_v1";
+const INSTALL_DISMISSED_KEY = "cerca_install_dismissed_v1";
+
+// Todas las claves de localStorage que usa la app — se usan para el borrado
+// total de datos desde el Menú. Si agregás una clave nueva, sumala acá.
+const ALL_STORAGE_KEYS = [
+  HISTORY_KEY, DARK_KEY, FAVORITES_KEY, NOTES_KEY, SAVED_SEARCHES_KEY,
+  SETTINGS_KEY, CAR_KEY, SUGGESTION_KEY, ZONE_CACHE_KEY, LAST_RESULT_KEY,
+  ONBOARDING_KEY, HIDDEN_PLACES_KEY, COMBOS_KEY, INSTALL_DISMISSED_KEY,
+];
 const HISTORY_LIMIT = 30;
 const ZONE_CACHE_TTL_MS = 8 * 60 * 1000; // 8 minutos: evita repegarle a Overpass en la misma zona
 const ZONE_CACHE_MAX_ENTRIES = 15;
@@ -152,6 +170,8 @@ const state = {
   lastSearchWasOffline: false,
   compareMode: false,
   compareSelection: [],
+  dataSaver: false,
+  combos: [],
 };
 
 const els = {
@@ -201,9 +221,12 @@ const els = {
   openNowToggle: document.getElementById("openNowToggle"),
   wheelchairToggle: document.getElementById("wheelchairToggle"),
   mapCatFilter: document.getElementById("mapCatFilter"),
+  combosRow: document.getElementById("combosRow"),
+  comboAddBtn: document.getElementById("comboAddBtn"),
 
   menuClearHistory: document.getElementById("menuClearHistory"),
   menuRestoreReported: document.getElementById("menuRestoreReported"),
+  menuEraseAll: document.getElementById("menuEraseAll"),
   menuShareWhatsapp: document.getElementById("menuShareWhatsapp"),
   menuCopyLink: document.getElementById("menuCopyLink"),
   menuExportFavorites: document.getElementById("menuExportFavorites"),
@@ -226,6 +249,10 @@ const els = {
   sheet: document.getElementById("placeSheet"),
   sheetClose: document.getElementById("sheetClose"),
   sheetContent: document.getElementById("sheetContent"),
+
+  installBanner: document.getElementById("installBanner"),
+  installBannerBtn: document.getElementById("installBannerBtn"),
+  installBannerClose: document.getElementById("installBannerClose"),
 };
 
 // ---------- UI: thumb deslizante de vidrio (dock / view-toggle) ----------
@@ -257,6 +284,7 @@ els.chips.addEventListener("click", (e) => {
     card.classList.add("selected");
   }
   card.setAttribute("aria-pressed", String(state.selected.has(cat)));
+  renderCombos();
 });
 
 // ---------- UI: dock inferior ----------
@@ -347,6 +375,7 @@ async function runSearch(overrides) {
       card.classList.toggle("selected", isSel);
       card.setAttribute("aria-pressed", String(isSel));
     });
+    renderCombos();
   }
   setStatus("");
   els.searchBtn.disabled = true;
@@ -414,6 +443,7 @@ async function runSearch(overrides) {
     } else if (state.results.length > 0) {
       showFoundStatus(state.results.length);
       els.refreshResultsBtn.hidden = true;
+      maybeShowInstallBanner();
     } else {
       setStatus("");
       els.refreshResultsBtn.hidden = true;
@@ -894,6 +924,49 @@ function formatDistance(m, isSlider = false) {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
 }
 
+// ---------- Tiempo a pie estimado ----------
+// La distancia en línea recta subestima bastante lo que hay que caminar en
+// una ciudad con cuadras, avenidas o vías. Compensamos con un factor de
+// "manzaneo" urbano (no es una ruta real, pero acerca mucho más que la
+// línea recta) y un ritmo de caminata promedio.
+const WALK_URBAN_FACTOR = 1.3; // cuadras/rodeos vs. línea recta
+const WALK_SPEED_M_MIN = 80; // ritmo urbano promedio, ~4.8 km/h
+
+function estimateWalkMinutes(meters) {
+  if (!(meters >= 0)) return null;
+  const walkDistance = meters * WALK_URBAN_FACTOR;
+  return Math.max(1, Math.round(walkDistance / WALK_SPEED_M_MIN));
+}
+
+function formatWalkTime(meters) {
+  const min = estimateWalkMinutes(meters);
+  if (min == null) return "";
+  if (min >= 60) {
+    const h = Math.floor(min / 60);
+    const rest = min % 60;
+    return rest === 0 ? `${h} h a pie` : `${h} h ${rest} min a pie`;
+  }
+  return `${min} min a pie`;
+}
+
+// ---------- Modo ahorro de datos ----------
+// Cuando el usuario tiene el "ahorro de datos" del sistema activado o está
+// en una conexión lenta (2G/3G), evitamos cargar las fotos de Wikimedia
+// Commons en las tarjetas y mostramos el ícono de categoría en su lugar.
+function getNetworkInfo() {
+  return navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+}
+function computeDataSaver() {
+  const conn = getNetworkInfo();
+  if (!conn) return false;
+  if (conn.saveData) return true;
+  if (conn.effectiveType && /2g|3g/i.test(conn.effectiveType)) return true;
+  return false;
+}
+function shouldShowPhoto(contact) {
+  return !!(contact && contact.photo) && !state.dataSaver;
+}
+
 // ---------- Render ----------
 function applyFiltersAndSort() {
   let list = state.results.slice();
@@ -954,9 +1027,9 @@ function renderResults() {
     return;
   }
 
-  els.resultsStatus.textContent = list.length === state.results.length
+  els.resultsStatus.textContent = (list.length === state.results.length
     ? `${state.results.length} lugares encontrados`
-    : `${list.length} de ${state.results.length} lugares`;
+    : `${list.length} de ${state.results.length} lugares`) + (state.dataSaver ? " · 🐢 ahorro de datos" : "");
 
   if (!state.renderedCount) state.renderedCount = RESULTS_PAGE_SIZE;
   const visibleList = list.slice(0, state.renderedCount);
@@ -983,13 +1056,14 @@ function renderResults() {
         : "";
       return `
         <button class="place-card card-enter" type="button" data-id="${p.id}" style="animation-delay:${delay}s">
-          ${c.photo ? `<div class="place-thumb"><img src="${c.photo}" alt="" loading="lazy" decoding="async" /></div>` : `<div class="place-badge ${def.badgeClass}">${def.icon}</div>`}
+          ${shouldShowPhoto(c) ? `<div class="place-thumb"><img src="${c.photo}" alt="" loading="lazy" decoding="async" /></div>` : `<div class="place-badge ${def.badgeClass}">${def.icon}</div>`}
           <div class="place-info">
             <p class="place-name">${escapeHtml(p.name)}</p>
             <div class="place-meta">
               <span>${def.label}</span>
               ${openChip}
               ${p.rating != null ? `<span class="place-rating">⭐ ${p.rating.toFixed(1)}</span>` : ""}
+              <span class="place-walk">🚶 ${formatWalkTime(p.dist)}</span>
               ${p.address ? `<span>${escapeHtml(p.address)}</span>` : ""}
               ${iconRow ? `<span class="place-icons">${iconRow}</span>` : ""}
             </div>
@@ -1144,14 +1218,14 @@ function openPlaceSheet(p) {
   actions.push(`<button class="sheet-action" id="sheetShareCardBtn" type="button"><span>🖼️</span>Tarjeta</button>`);
 
   els.sheetContent.innerHTML = `
-    ${c.photo
+    ${shouldShowPhoto(c)
       ? `<div class="sheet-photo" style="background-image:url('${c.photo}')"></div>`
       : `<div class="sheet-photo sheet-photo-placeholder ${def.badgeClass}"><span>${def.icon}</span></div>`}
     <div class="sheet-header">
       <div class="place-badge ${def.badgeClass}">${def.icon}</div>
       <div class="sheet-title-wrap">
         <h3 class="sheet-title">${escapeHtml(p.name)}</h3>
-        <p class="sheet-subtitle">${def.label} · ${formatDistance(p.dist)}<span id="sheetAddressPart">${p.address ? " · " + escapeHtml(p.address) : ""}</span>${p.rating != null ? ` · <span class="sheet-rating">⭐ ${p.rating.toFixed(1)}</span>` : ""}</p>
+        <p class="sheet-subtitle">${def.label} · ${formatDistance(p.dist)} · 🚶 ${formatWalkTime(p.dist)}<span id="sheetAddressPart">${p.address ? " · " + escapeHtml(p.address) : ""}</span>${p.rating != null ? ` · <span class="sheet-rating">⭐ ${p.rating.toFixed(1)}</span>` : ""}</p>
       </div>
       <button class="sheet-fav-star ${isFav ? "on" : ""}" id="sheetFavBtn" type="button" aria-label="Favorito" aria-pressed="${isFav}">${isFav ? "★" : "☆"}</button>
     </div>
@@ -1384,7 +1458,7 @@ function renderClusteredMarkers(points) {
       });
       L.marker([p.lat, p.lon], { icon })
         .addTo(state.markersLayer)
-        .bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${def.label} · ${formatDistance(p.dist)}${closed ? " · <span style=\"color:var(--status-closed)\">Cerrado</span>" : ""}`);
+        .bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${def.label} · ${formatDistance(p.dist)} · 🚶 ${formatWalkTime(p.dist)}${closed ? " · <span style=\"color:var(--status-closed)\">Cerrado</span>" : ""}`);
     } else {
       const latSum = group.reduce((s, g) => s + g.p.lat, 0);
       const lonSum = group.reduce((s, g) => s + g.p.lon, 0);
@@ -1536,7 +1610,7 @@ function renderFavorites() {
       const selected = state.compareSelection.includes(String(p.id));
       return `
         <button class="place-card ${selected ? "comparing" : ""}" type="button" data-fav-open="${p.id}">
-          ${c.photo ? `<div class="place-thumb" style="background-image:url('${c.photo}')"></div>` : `<div class="place-badge ${def.badgeClass}">${def.icon}</div>`}
+          ${shouldShowPhoto(c) ? `<div class="place-thumb" style="background-image:url('${c.photo}')"></div>` : `<div class="place-badge ${def.badgeClass}">${def.icon}</div>`}
           <div class="place-info">
             <p class="place-name">${escapeHtml(p.name)}</p>
             <div class="place-meta">
@@ -1733,6 +1807,114 @@ els.savedSearchesList.addEventListener("click", (e) => {
   if (!s) return;
   runSearch({ cats: s.cats, radius: s.radius });
 });
+
+// ---------- Combos de categorías (atajos sin ubicación fija) ----------
+// Distinto de las "búsquedas favoritas": esto no guarda radio ni ubicación,
+// solo un conjunto de categorías para no tener que tildarlas de nuevo cada
+// vez (ej: "Previa" = bar + kiosco).
+function loadCombos() {
+  try {
+    const raw = localStorage.getItem(COMBOS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : DEFAULT_COMBOS.slice();
+    }
+    saveCombosList(DEFAULT_COMBOS);
+    return DEFAULT_COMBOS.slice();
+  } catch (e) {
+    return DEFAULT_COMBOS.slice();
+  }
+}
+function saveCombosList(list) {
+  try { localStorage.setItem(COMBOS_KEY, JSON.stringify(list)); } catch (e) {}
+}
+function comboIsActive(combo) {
+  const cats = (combo.cats || []).filter((c) => CATEGORY_DEFS[c]);
+  if (cats.length === 0) return false;
+  return state.selected.size === cats.length && cats.every((c) => state.selected.has(c));
+}
+function renderCombos() {
+  if (!els.combosRow) return;
+  if (state.combos.length === 0) {
+    els.combosRow.innerHTML = `<span class="combos-empty">Elegí categorías y tocá “+ Combo” para guardar un atajo</span>`;
+    return;
+  }
+  els.combosRow.innerHTML = state.combos
+    .map((combo, idx) => {
+      const cats = (combo.cats || []).filter((c) => CATEGORY_DEFS[c]);
+      const icons = cats.map((c) => CATEGORY_DEFS[c].icon).join("");
+      const active = comboIsActive(combo);
+      return `
+        <span class="chip-toggle combo-chip ${active ? "on" : ""}" data-combo-idx="${idx}" role="button" tabindex="0" aria-pressed="${active}">
+          <span class="combo-chip-label">${combo.icon || icons || "🔖"} ${escapeHtml(combo.name)}</span>
+          <span class="combo-delete" data-combo-delete="${idx}" role="button" tabindex="0" aria-label="Borrar combo ${escapeHtml(combo.name)}">✕</span>
+        </span>
+      `;
+    })
+    .join("");
+}
+function applyCombo(combo) {
+  const cats = (combo.cats || []).filter((c) => CATEGORY_DEFS[c]);
+  if (cats.length === 0) {
+    showToast("Este combo no tiene categorías válidas");
+    return;
+  }
+  state.selected = new Set(cats);
+  document.querySelectorAll(".cat-card").forEach((card) => {
+    const isSel = state.selected.has(card.dataset.cat);
+    card.classList.toggle("selected", isSel);
+    card.setAttribute("aria-pressed", String(isSel));
+  });
+  renderCombos();
+  showToast(`Combo "${combo.name}" aplicado — tocá Buscar`);
+}
+function deleteCombo(idx) {
+  const combo = state.combos[idx];
+  if (!combo) return;
+  if (!confirm(`¿Borrar el combo "${combo.name}"?`)) return;
+  state.combos.splice(idx, 1);
+  saveCombosList(state.combos);
+  renderCombos();
+  showToast("Combo eliminado");
+}
+if (els.combosRow) {
+  els.combosRow.addEventListener("click", (e) => {
+    const del = e.target.closest("[data-combo-delete]");
+    if (del) {
+      e.stopPropagation();
+      deleteCombo(Number(del.dataset.comboDelete));
+      return;
+    }
+    const chip = e.target.closest("[data-combo-idx]");
+    if (!chip) return;
+    const combo = state.combos[Number(chip.dataset.comboIdx)];
+    if (combo) applyCombo(combo);
+  });
+  els.combosRow.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const target = e.target.closest("[data-combo-idx],[data-combo-delete]");
+    if (!target) return;
+    e.preventDefault();
+    target.click();
+  });
+}
+if (els.comboAddBtn) {
+  els.comboAddBtn.addEventListener("click", () => {
+    if (state.selected.size === 0) {
+      showToast("Elegí al menos una categoría para guardarla como combo");
+      return;
+    }
+    const name = prompt("Nombre para este combo (ej: Previa, Domingo con la familia):");
+    if (!name || !name.trim()) return;
+    const cats = [...state.selected];
+    const icon = CATEGORY_DEFS[cats[0]] ? CATEGORY_DEFS[cats[0]].icon : "🔖";
+    state.combos.push({ id: `custom_${Date.now()}`, name: name.trim().slice(0, 28), icon, cats });
+    saveCombosList(state.combos);
+    renderCombos();
+    showToast("Combo guardado");
+  });
+}
+
 // ---------- Configuración (radio/categorías default, orden, accento) ----------
 function loadSettings() {
   try {
@@ -1886,7 +2068,7 @@ if (els.suggestionBtn) {
 }
 function showSuggestionResult(p) {
   const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
-  els.suggestionSub.textContent = `${def.icon} ${p.name} — ${def.label}, a ${formatDistance(p.dist)}. Tocá para ver más.`;
+  els.suggestionSub.textContent = `${def.icon} ${p.name} — ${def.label}, a ${formatDistance(p.dist)} (${formatWalkTime(p.dist)}). Tocá para ver más.`;
   els.suggestionBtn.onclick = () => {
     if (state.userLat) p.dist = haversine(state.userLat, state.userLon, p.lat, p.lon);
     openPlaceSheet(p);
@@ -2105,6 +2287,20 @@ if (els.menuRestoreReported) {
   });
 }
 
+if (els.menuEraseAll) {
+  els.menuEraseAll.addEventListener("click", () => {
+    const sure = confirm(
+      "¿Borrar todos tus datos guardados en este dispositivo?\n\nSe van a eliminar tus favoritos, notas, historial, combos, búsquedas guardadas, el auto guardado y tus preferencias. Nada de esto se manda a ningún servidor — vive solo en este dispositivo — pero esta acción no se puede deshacer."
+    );
+    if (!sure) return;
+    try {
+      ALL_STORAGE_KEYS.forEach((k) => localStorage.removeItem(k));
+    } catch (e) {}
+    showToast("Listo, borramos todos tus datos");
+    setTimeout(() => window.location.reload(), 700);
+  });
+}
+
 els.menuShareWhatsapp.addEventListener("click", shareWhatsApp);
 
 if (els.menuCopyLink) {
@@ -2319,6 +2515,66 @@ function showToast(msg) {
   }, 2200);
 }
 
+// ---------- Prompt de instalación propio (beforeinstallprompt) ----------
+// En vez de esperar a que el usuario busque "Instalar app" en el menú del
+// navegador, interceptamos el evento y mostramos nuestro propio banner en
+// el momento justo: después de la primera búsqueda exitosa.
+let deferredInstallPrompt = null;
+let installBannerShownThisSession = false;
+
+function isRunningStandalone() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+  );
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+
+function maybeShowInstallBanner() {
+  if (!els.installBanner || !deferredInstallPrompt) return;
+  if (installBannerShownThisSession) return;
+  if (isRunningStandalone()) return;
+  try {
+    if (localStorage.getItem(INSTALL_DISMISSED_KEY)) return;
+  } catch (e) {}
+  installBannerShownThisSession = true;
+  els.installBanner.hidden = false;
+}
+
+function hideInstallBanner() {
+  if (els.installBanner) els.installBanner.hidden = true;
+}
+
+if (els.installBannerBtn) {
+  els.installBannerBtn.addEventListener("click", async () => {
+    hideInstallBanner();
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    try {
+      const choice = await deferredInstallPrompt.userChoice;
+      if (choice.outcome !== "accepted") {
+        try { localStorage.setItem(INSTALL_DISMISSED_KEY, "1"); } catch (e) {}
+      }
+    } catch (e) {}
+    deferredInstallPrompt = null;
+  });
+}
+if (els.installBannerClose) {
+  els.installBannerClose.addEventListener("click", () => {
+    hideInstallBanner();
+    try { localStorage.setItem(INSTALL_DISMISSED_KEY, "1"); } catch (e) {}
+  });
+}
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  hideInstallBanner();
+  try { localStorage.setItem(INSTALL_DISMISSED_KEY, "1"); } catch (e) {}
+});
+
 // ---------- Búsqueda por dirección (Nominatim autocomplete) ----------
 const elAddrInput = document.getElementById("addressInput");
 const elAddrSuggestions = document.getElementById("addressSuggestions");
@@ -2465,6 +2721,7 @@ async function runSearchFromAddress(lat, lon) {
     } else if (state.results.length > 0) {
       showFoundStatus(state.results.length);
       els.refreshResultsBtn.hidden = true;
+      maybeShowInstallBanner();
     } else {
       setStatus("");
     }
@@ -2638,6 +2895,24 @@ if (els.wheelchairToggle) {
 
 state.hiddenPlaces = loadHiddenPlaces();
 
+state.combos = loadCombos();
+renderCombos();
+
+state.dataSaver = computeDataSaver();
+(function watchDataSaver() {
+  const conn = getNetworkInfo();
+  if (!conn || !conn.addEventListener) return;
+  conn.addEventListener("change", () => {
+    const was = state.dataSaver;
+    state.dataSaver = computeDataSaver();
+    if (was !== state.dataSaver) {
+      if (state.dataSaver) showToast("Ahorro de datos activado: no cargamos más fotos");
+      if (state.results && state.results.length) renderResults();
+      if (state.activeTab === "favoritos") renderFavorites();
+    }
+  });
+})();
+
 if (state.settings.defaultRadius) {
   state.radius = state.settings.defaultRadius;
   els.radius.value = state.radius;
@@ -2655,6 +2930,7 @@ document.querySelectorAll(".cat-card").forEach((card) => {
   card.classList.toggle("selected", isSel);
   card.setAttribute("aria-pressed", String(isSel));
 });
+renderCombos();
 
 state.car = loadCar();
 updateCarMenuItem();
