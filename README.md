@@ -28,19 +28,16 @@ App web instalable (PWA) para encontrar **bares, cafés, parrillas, restaurantes
 3. Tocás **"Buscar cerca mío"** → el navegador pide permiso de ubicación.
 4. La app consulta Overpass API y muestra los lugares ordenados por distancia, en lista o en mapa.
 
-## 🤖 Chat con IA (nuevo)
+## 💬 Chat 100% local
 
-Cerca ahora tiene un cajón de chat **siempre visible** arriba del dock (el
+Cerca tiene un cajón de chat **siempre visible** arriba del dock (el
 input y el botón de "Asistente de Cerca" nunca se ocultan; tocando el
-cajón se expande para ver la conversación). Es un asistente conversacional
-sobre Gemini: conoce los resultados y favoritos que están en pantalla y
-recomienda, opina y responde dudas — no toca botones por vos, pero te dice
-cómo hacerlo.
-
-**Para activarlo hace falta un paso único de configuración** (gratis):
-ver `worker/README.md` — deployar el Worker con tu API key de Gemini y
-pegar la URL en `chat.js` (`CHAT_CONFIG.WORKER_URL`). Sin ese paso, el chat
-avisa que falta configurar.
+cajón se expande para ver la conversación). Es un asistente por reglas
+(sin IA, sin servidor, sin conexión a internet): conoce los resultados y
+favoritos que están en pantalla y responde con eso — recomienda, cuenta
+cuál está más cerca o mejor calificado, muestra tus favoritos o explica
+cómo usar la app. Todo corre en `chat.js`, en el propio dispositivo. No
+requiere configuración ni API key.
 
 ## Estructura del proyecto
 
@@ -51,9 +48,8 @@ cerca-app/
 ├── app.js             # Lógica: geolocalización, Overpass, render
 ├── manifest.json       # Manifest PWA (nombre, íconos, colores)
 ├── sw.js               # Service worker (cache offline del shell)
-├── chat.js             # Lógica del chat IA: conecta con Gemini y ejecuta acciones
+├── chat.js             # Chat 100% local por reglas (sin red, sin servidor)
 ├── icons/               # Íconos 192/512 (normal + maskable)
-├── worker/              # Cloudflare Worker que hace de proxy hacia Gemini (ver worker/README.md)
 └── make_icons.py        # Script que generó los íconos (opcional, no se usa en runtime)
 ```
 
