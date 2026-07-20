@@ -36,8 +36,11 @@ cajón se expande para ver la conversación). Es un asistente por reglas
 (sin IA, sin servidor, sin conexión a internet): conoce los resultados y
 favoritos que están en pantalla y responde con eso — recomienda, cuenta
 cuál está más cerca o mejor calificado, muestra tus favoritos o explica
-cómo usar la app. Todo corre en `chat.js`, en el propio dispositivo. No
-requiere configuración ni API key.
+cómo usar la app. Si le pedís algo como **"¿qué tengo cerca?"** o
+**"buscá bares"**, ejecuta de verdad la búsqueda (la misma función que
+el botón "Buscar cerca mío") y te muestra los resultados frescos, tanto
+en el chat como en la pantalla de Inicio. Todo corre en `chat.js`, en el
+propio dispositivo. No requiere configuración ni API key.
 
 ## Estructura del proyecto
 

@@ -1,13 +1,13 @@
 // ---------------------------------------------------------
 // Cerca — Chat 100% local (sin IA, sin servidor, sin red)
 // ---------------------------------------------------------
-// Este archivo se carga DESPUÉS de app.js y lee sus variables
-// globales (state, CATEGORY_DEFS, formatDistance, isOpenNow)
-// solo para darle contexto a las respuestas. No hace ningún
-// fetch: todo se resuelve con reglas en JS, en el propio
-// dispositivo. No toca ni ejecuta acciones de la app — si el
-// usuario pide algo que requiere una acción, se le explica cómo
-// hacerlo desde la interfaz.
+// Este archivo se carga DESPUÉS de app.js y reutiliza sus funciones
+// globales (state, CATEGORY_DEFS, formatDistance, isOpenNow, runSearch,
+// switchTab) tanto para dar contexto como, en pedidos del tipo "qué
+// tengo cerca" / "buscá bares", para ejecutar la búsqueda real de la
+// app (la misma que dispara el botón "Buscar cerca mío"). No hace
+// ningún fetch propio: todo el texto se arma con reglas en JS, en el
+// propio dispositivo.
 
 const chat = {
   open: false,
@@ -67,6 +67,42 @@ function matchCategory(text) {
     if (hasAny(text, words) && CATEGORY_DEFS[key]) return key;
   }
   return null;
+}
+
+// Detecta si el mensaje pide EJECUTAR una búsqueda ahora (no solo hablar
+// de los resultados que ya están en pantalla).
+function isNearbyActionRequest(text) {
+  const actionVerbs = ["busca", "buscar", "buscame", "encontrame", "encontrar algo", "mostrame que hay", "dame lugares"];
+  const nearbyPhrases = ["tengo cerca", "hay cerca", "cerca mio", "cerca mia", "que hay para mi zona", "algo cerca", "que puedo encontrar"];
+  return hasAny(text, actionVerbs) || hasAny(text, nearbyPhrases);
+}
+
+// Ejecuta la búsqueda real de la app (misma función que usa el botón
+// "Buscar cerca mío") y arma la respuesta con los resultados frescos.
+async function runNearbySearchAction(rawText) {
+  const text = normalizeText(rawText);
+  const cat = matchCategory(text);
+
+  if (typeof switchTab === "function") switchTab("inicio");
+  appendChatBubble("model", cat
+    ? `Buscando ${CATEGORY_DEFS[cat].label.toLowerCase()} cerca tuyo… 🔎`
+    : "Buscando cerca tuyo… 🔎");
+
+  try {
+    await runSearch(cat ? { cats: [cat] } : undefined);
+  } catch (e) {
+    // runSearch ya maneja y muestra sus propios errores (permiso de
+    // ubicación, sin conexión, etc.) — esto es solo una red de seguridad.
+    console.error(e);
+  }
+
+  const pool = getPool();
+  if (!pool.length) {
+    return "No encontré resultados. Puede ser que hayas rechazado el permiso de ubicación, o que no haya lugares en el radio actual — probá ampliar el radio desde Inicio.";
+  }
+  const top = pool.slice(0, 6).map(placeLine).join("\n");
+  const catSuffix = cat ? ` de ${CATEGORY_DEFS[cat].label}` : "";
+  return `Encontré ${pool.length} lugar(es) cerca tuyo${catSuffix}:\n${top}`;
 }
 
 // ---------- Motor de respuestas ----------
@@ -178,10 +214,15 @@ async function sendChatMessage(userText) {
   showChatTyping(true);
   els.chatSend && (els.chatSend.disabled = true);
 
-  // Sin red, sin espera real — un breve delay solo para que se sienta natural
-  await new Promise((resolve) => setTimeout(resolve, 220));
-
-  const reply = buildReply(userText);
+  const normalized = normalizeText(userText);
+  let reply;
+  if (isNearbyActionRequest(normalized)) {
+    reply = await runNearbySearchAction(userText);
+  } else {
+    // Sin red, sin espera real — un breve delay solo para que se sienta natural
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    reply = buildReply(userText);
+  }
   appendChatBubble("model", reply);
 
   showChatTyping(false);
@@ -211,7 +252,7 @@ function openChat() {
   syncChatViewport();
   if (els.chatInput) els.chatInput.focus();
   if (els.chatMessages && !els.chatMessages.childElementCount) {
-    appendChatBubble("model", "¡Hola! Preguntame lo que quieras sobre los lugares que ves en pantalla, pedime una recomendación o consultame tus favoritos. Todo esto lo resuelvo acá en el celular, sin conexión. 📴");
+    appendChatBubble("model", "¡Hola! 👋 Preguntame \"¿qué tengo cerca?\" y hago la búsqueda por vos, o consultame por los resultados en pantalla, tus favoritos, o cómo usar la app. Todo esto lo resuelvo acá en el celular, sin conexión. 📴");
   }
 }
 
