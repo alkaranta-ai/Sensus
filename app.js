@@ -2916,6 +2916,23 @@ function updateMapaMarkers() {
     bounds.push([p.lat, p.lon]);
   });
 
+  // Resultados de la última búsqueda (evitamos duplicar los que ya son favoritos)
+  (state.results || [])
+    .filter((p) => !isFavorite(p.id))
+    .forEach((p) => {
+      const def = CATEGORY_DEFS[p.category] || CATEGORY_DEFS.restaurante;
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="marker-enter" style="font-size:18px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));opacity:0.85"><span class="marker-float">${def.icon}</span></div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      L.marker([p.lat, p.lon], { icon })
+        .addTo(state.mapaMarkersLayer)
+        .bindPopup(`<strong>${escapeHtml(p.name)}</strong><br>${def.label} · ${formatDistance(p.dist)}`);
+      bounds.push([p.lat, p.lon]);
+    });
+
   if (bounds.length > 1) {
     state.mapaMap.flyToBounds(bounds, { padding: [30, 30], maxZoom: 16, duration: 0.7 });
   } else if (bounds.length === 1) {
