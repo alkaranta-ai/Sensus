@@ -59,8 +59,7 @@ function matchCategory(text) {
   const synonyms = {
     bar: ["birra", "cerveza", "tragos", "pub"],
     cafe: ["cafe", "cafeteria"],
-    parrilla: ["asado", "carne"],
-    restaurante: ["comer", "restaurant"],
+    parrilla: ["asado"],
     pizza: ["pizzeria"],
     heladeria: ["helado"],
     panaderia: ["pan", "facturas"],
@@ -68,12 +67,20 @@ function matchCategory(text) {
     supermercado: ["super", "almacen"],
     comida_rapida: ["hamburguesa", "burger", "fast food"],
     estacion_servicio: ["nafta", "combustible", "gasolina"],
-    kiosco: ["kiosko", "quiosco"],
+    carniceria: ["carnicero", "milanesa", "vacio", "bife"],
+    verduleria: ["verduras", "fruta", "frutas", "verdura"],
   };
   for (const [key, words] of Object.entries(synonyms)) {
     if (hasAny(text, words) && CATEGORY_DEFS[key]) return key;
   }
   return null;
+}
+
+// Arma un texto con todas las categorías disponibles (ej. "🍸 Bar, ☕ Café,
+// …") para preguntarle al usuario cuál le interesa cuando no dijo una en
+// particular.
+function listCategoriesText() {
+  return Object.values(CATEGORY_DEFS).map((def) => `${def.icon} ${def.label}`).join(" · ");
 }
 
 // Detecta si el mensaje pide EJECUTAR una búsqueda ahora (no solo hablar
@@ -173,7 +180,7 @@ function respondFromPool(rawText) {
 
   // Ayuda / cómo usar la app
   if (hasAny(text, ["como busco", "como uso", "como funciona", "ayuda", "como se usa"])) {
-    appendChatBubble("model", "Pedime algo como \"un café cerca\" y yo hago la búsqueda y te muestro las 3 opciones más cercanas para ir directo a Maps. También podés elegir categoría y radio a mano y tocar \"Buscar cerca mío\".");
+    appendChatBubble("model", `Pedime algo como "un café cerca" y yo hago la búsqueda y te muestro las 3 opciones más cercanas para ir directo a Maps. Si no sé qué categoría buscás, te pregunto entre estas:\n${listCategoriesText()}\nTambién podés elegir categoría y radio a mano y tocar "Buscar cerca mío".`);
     return;
   }
 
@@ -236,7 +243,7 @@ function respondFromPool(rawText) {
 
   // Recomendación / idea genérica
   if (hasAny(text, ["recomend", "sugerime", "sugerencia", "idea", "donde voy", "plan", "opcion"])) {
-    if (!pool.length) { appendChatBubble("model", "Todavía no hiciste una búsqueda. Pedime \"algo cerca\" y te tiro una idea."); return; }
+    if (!pool.length) { appendChatBubble("model", `Todavía no hiciste una búsqueda. Elegí una categoría y te tiro una idea:\n${listCategoriesText()}`); return; }
     const pick = pool[Math.floor(Math.random() * Math.min(pool.length, 8))];
     appendChatBubble("model", "Te tiro una idea. Tocá para abrir en Maps 👇");
     appendChatPlaces([pick]);
@@ -258,7 +265,7 @@ function respondFromPool(rawText) {
   }
 
   // Fallback
-  appendChatBubble("model", "No estoy seguro de eso 😅 Pedime algo como \"un café cerca\", contame qué buscás, o preguntame por tus favoritos.");
+  appendChatBubble("model", `No estoy seguro de eso 😅 Estas son las categorías que puedo buscar:\n${listCategoriesText()}\nDecime cuál te interesa y te doy las 3 opciones más cerca.`);
 }
 
 async function sendChatMessage(userText) {
@@ -269,7 +276,15 @@ async function sendChatMessage(userText) {
 
   const normalized = normalizeText(userText);
   if (isNearbyActionRequest(normalized)) {
-    await runNearbySearchAction(userText);
+    if (matchCategory(normalized)) {
+      await runNearbySearchAction(userText);
+    } else {
+      // Pedido de búsqueda sin categoría clara: le preguntamos cuál le
+      // interesa mostrándole todas las categorías disponibles, en vez de
+      // buscar a ciegas en todas.
+      await new Promise((resolve) => setTimeout(resolve, 220));
+      appendChatBubble("model", `¿Qué tipo de lugar buscás? Estas son las categorías disponibles:\n${listCategoriesText()}\nDecime una y te doy las 3 opciones más cerca.`);
+    }
   } else {
     // Sin red, sin espera real — un breve delay solo para que se sienta natural
     await new Promise((resolve) => setTimeout(resolve, 220));

@@ -68,8 +68,8 @@
         <button class="cat-card" data-cat="parrilla" data-color="parrilla" aria-pressed="false">
           <span class="cat-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3C12 3 7 7.5 7 12.5C7 15.5 9.24 18 12 18C14.76 18 17 15.5 17 12.5C17 11 16.3 9.8 15.5 9C15.5 10.5 14.5 11.5 13.5 11.5C13.5 9 12 8 12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span><span class="cat-label">Parrilla</span>
         </button>
-        <button class="cat-card" data-cat="restaurante" data-color="restaurante" aria-pressed="false">
-          <span class="cat-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M6 2V8M8 2V8M10 2V8M8 8V22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 2C16 2 14 4 14 7C14 8.5 14.9 9.6 16 9.9V22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="cat-label">Resto</span>
+        <button class="cat-card" data-cat="carniceria" data-color="carniceria" aria-pressed="false">
+          <span class="cat-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M6 4L14 12C15.5 13.5 15.5 16 14 17.5C12.5 19 10 19 8.5 17.5L4.5 13.5C3.5 12.5 3.5 11 4.5 10L6 4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 17.5L19 20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7 6L11 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="cat-label">Carnicería</span>
         </button>
         <button class="cat-card" data-cat="pizza" data-color="pizza" aria-pressed="false">
           <span class="cat-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3L21 19H3L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="0.9" fill="currentColor"/><circle cx="9.5" cy="15.5" r="0.9" fill="currentColor"/><circle cx="14.5" cy="15.5" r="0.9" fill="currentColor"/></svg></span><span class="cat-label">Pizza</span>
@@ -92,8 +92,8 @@
         <button class="cat-card" data-cat="estacion_servicio" data-color="estacion_servicio" aria-pressed="false">
           <span class="cat-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M5 21V6C5 4.9 5.9 4 7 4H11C12.1 4 13 4.9 13 6V21" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 21H14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6.5 8H11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 9L15.5 10.5V17C15.5 17.83 16.17 18.5 17 18.5C17.83 18.5 18.5 17.83 18.5 17V12.5L16.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="cat-label">Estación</span>
         </button>
-        <button class="cat-card" data-cat="kiosco" data-color="kiosco" aria-pressed="false">
-          <span class="cat-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 9L5 4H19L20 9" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 9C4 10.1 4.9 11 6 11C7.1 11 8 10.1 8 9C8 10.1 8.9 11 10 11C11.1 11 12 10.1 12 9C12 10.1 12.9 11 14 11C15.1 11 16 10.1 16 9C16 10.1 16.9 11 18 11C19.1 11 20 10.1 20 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 11V20H19V11" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20V15H14V20" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span><span class="cat-label">Kiosco</span>
+        <button class="cat-card" data-cat="verduleria" data-color="verduleria" aria-pressed="false">
+          <span class="cat-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 8C12 8 11 3 7 3C7 3 6.5 6.5 9.5 8.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8C7 8 5 12 5 15.5C5 18.5 8 21 12 21C16 21 19 18.5 19 15.5C19 12 17 8 12 8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="cat-label">Verdulería</span>
         </button>
       </div>
 
@@ -374,7 +374,7 @@
 <div class="modal-overlay" id="onboardingOverlay" hidden>
   <div class="modal-card glass-panel">
     <h3>👋 Bienvenido a Cerca</h3>
-    <p>Cerca te muestra bares, cafés, farmacias, kioscos y más lugares cerca tuyo, con datos abiertos de OpenStreetMap.</p>
+    <p>Cerca te muestra bares, cafés, farmacias, carnicerías y más lugares cerca tuyo, con datos abiertos de OpenStreetMap.</p>
     <p>Para eso necesitamos tu <strong>ubicación GPS</strong> — solo se usa en tu dispositivo para calcular distancias, nunca la compartimos con nadie.</p>
     <button class="modal-close" id="onboardingClose">Entendido, vamos</button>
   </div>

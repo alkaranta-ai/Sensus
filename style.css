@@ -30,7 +30,7 @@
   --c-bar:          #C778DD;
   --c-cafe:         #C8956A;
   --c-parrilla:     #FF5C3D;
-  --c-restaurante:  #FF9A24;
+  --c-carniceria:  #E85C4A;
   --c-pizza:        #F7CC45;
   --c-heladeria:    #FF4D7E;
   --c-panaderia:    #D4A96A;
@@ -38,7 +38,7 @@
   --c-supermercado: #38C4E0;
   --c-comida_rapida:#7C6EF5;
   --c-estacion_servicio:#FF7A45;
-  --c-kiosco:          #FFD166;
+  --c-verduleria:      #7CB342;
 
   --radius-lg: 30px;
   --radius-md: 20px;
@@ -520,7 +520,7 @@ input[type="range"]:focus-visible {
 .cat-card[data-color="bar"]          { --_c: var(--c-bar); }
 .cat-card[data-color="cafe"]         { --_c: var(--c-cafe); }
 .cat-card[data-color="parrilla"]     { --_c: var(--c-parrilla); }
-.cat-card[data-color="restaurante"]  { --_c: var(--c-restaurante); }
+.cat-card[data-color="carniceria"]   { --_c: var(--c-carniceria); }
 .cat-card[data-color="pizza"]        { --_c: var(--c-pizza); }
 .cat-card[data-color="heladeria"]    { --_c: var(--c-heladeria); }
 .cat-card[data-color="panaderia"]    { --_c: var(--c-panaderia); }
@@ -528,7 +528,7 @@ input[type="range"]:focus-visible {
 .cat-card[data-color="supermercado"] { --_c: var(--c-supermercado); }
 .cat-card[data-color="comida_rapida"]{ --_c: var(--c-comida_rapida); }
 .cat-card[data-color="estacion_servicio"] { --_c: var(--c-estacion_servicio); }
-.cat-card[data-color="kiosco"]            { --_c: var(--c-kiosco); }
+.cat-card[data-color="verduleria"]        { --_c: var(--c-verduleria); }
 
 /* ─── Fila de radio ─── */
 .radius-row {
@@ -885,7 +885,7 @@ input[type="range"]::-moz-range-thumb {
 .place-badge.bar         { box-shadow: 0 0 0 1px var(--c-bar),   inset 0 0 12px rgba(199,120,221,0.15); }
 .place-badge.cafe        { box-shadow: 0 0 0 1px var(--c-cafe),  inset 0 0 12px rgba(200,149,106,0.15); }
 .place-badge.parrilla    { box-shadow: 0 0 0 1px var(--c-parrilla), inset 0 0 12px rgba(255,92,61,0.15); }
-.place-badge.restaurante { box-shadow: 0 0 0 1px var(--c-restaurante), inset 0 0 12px rgba(255,154,36,0.15); }
+.place-badge.carniceria  { box-shadow: 0 0 0 1px var(--c-carniceria), inset 0 0 12px rgba(232,92,74,0.15); }
 .place-badge.pizza       { box-shadow: 0 0 0 1px var(--c-pizza), inset 0 0 12px rgba(247,204,69,0.15); }
 .place-badge.heladeria   { box-shadow: 0 0 0 1px var(--c-heladeria), inset 0 0 12px rgba(255,77,126,0.15); }
 .place-badge.panaderia   { box-shadow: 0 0 0 1px var(--c-panaderia), inset 0 0 12px rgba(212,169,106,0.15); }
@@ -893,7 +893,7 @@ input[type="range"]::-moz-range-thumb {
 .place-badge.supermercado{ box-shadow: 0 0 0 1px var(--c-supermercado), inset 0 0 12px rgba(56,196,224,0.15); }
 .place-badge.comida_rapida{ box-shadow: 0 0 0 1px var(--c-comida_rapida), inset 0 0 12px rgba(124,110,245,0.15); }
 .place-badge.estacion_servicio { box-shadow: 0 0 0 1px var(--c-estacion_servicio), inset 0 0 12px rgba(255,122,69,0.15); }
-.place-badge.kiosco            { box-shadow: 0 0 0 1px var(--c-kiosco), inset 0 0 12px rgba(255,209,102,0.15); }
+.place-badge.verduleria        { box-shadow: 0 0 0 1px var(--c-verduleria), inset 0 0 12px rgba(124,179,66,0.15); }
 
 .place-info { flex: 1; min-width: 0; }
 

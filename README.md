@@ -19,7 +19,7 @@
 - ⭐ Se muestra el **rating** (`stars`/`rating` de OSM) cuando el lugar lo tiene cargado
 
 
-App web instalable (PWA) para encontrar **bares, cafés, parrillas, restaurantes, pizzerías y heladerías** cerca tuyo usando el GPS del celular. No necesita backend ni API keys: usa la geolocalización del navegador + [OpenStreetMap / Overpass API](https://overpass-api.de/) (gratis).
+App web instalable (PWA) para encontrar **bares, cafés, parrillas, carnicerías, pizzerías y heladerías** cerca tuyo usando el GPS del celular. No necesita backend ni API keys: usa la geolocalización del navegador + [OpenStreetMap / Overpass API](https://overpass-api.de/) (gratis).
 
 ## Cómo funciona
 
