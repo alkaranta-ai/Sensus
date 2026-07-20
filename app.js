@@ -830,6 +830,8 @@ function classify(tags, cats) {
   if (amenity === "fuel") return "estacion_servicio";
   if (shop === "kiosk") return "kiosco";
   if (shop === "convenience") return "kiosco";
+  if (shop === "butcher") return "carniceria";
+  if (shop === "greengrocer") return "verduleria";
   if (amenity === "restaurant") return "restaurante";
   return "restaurante";
 }
