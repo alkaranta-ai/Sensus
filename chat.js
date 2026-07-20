@@ -208,16 +208,39 @@ function openChat() {
   chat.open = true;
   if (els.chatOverlay) els.chatOverlay.hidden = false;
   requestAnimationFrame(() => els.chatOverlay && els.chatOverlay.classList.add("open"));
+  syncChatViewport();
   if (els.chatInput) els.chatInput.focus();
   if (els.chatMessages && !els.chatMessages.childElementCount) {
     appendChatBubble("model", "¡Hola! Preguntame lo que quieras sobre los lugares que ves en pantalla, pedime una recomendación o consultame tus favoritos. Todo esto lo resuelvo acá en el celular, sin conexión. 📴");
   }
 }
 
+// Ajusta el alto/posición del overlay al viewport visible real. En mobile,
+// cuando aparece el teclado, la ventana visual se achica pero `100dvh` no
+// siempre lo refleja a tiempo — esto asegura que header + mensajes + input
+// queden siempre dentro del área visible, sin que el teclado tape el input.
+function syncChatViewport() {
+  if (!chat.open || !els.chatOverlay || !window.visualViewport) return;
+  const vv = window.visualViewport;
+  els.chatOverlay.style.height = `${vv.height}px`;
+  els.chatOverlay.style.top = `${vv.offsetTop}px`;
+  if (els.chatMessages) els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", syncChatViewport);
+  window.visualViewport.addEventListener("scroll", syncChatViewport);
+}
+
 function closeChat() {
   chat.open = false;
   if (els.chatOverlay) els.chatOverlay.classList.remove("open");
-  setTimeout(() => { if (els.chatOverlay && !chat.open) els.chatOverlay.hidden = true; }, 220);
+  setTimeout(() => {
+    if (els.chatOverlay && !chat.open) {
+      els.chatOverlay.hidden = true;
+      els.chatOverlay.style.height = "";
+      els.chatOverlay.style.top = "";
+    }
+  }, 220);
 }
 
 function initChatUI() {

@@ -2069,6 +2069,8 @@ body.dark {
 .chat-overlay {
   position: fixed;
   inset: 0;
+  height: 100vh;
+  height: 100dvh; /* se ajusta además por JS cuando aparece el teclado */
   z-index: 160;
   background: rgba(0,0,0,0.5);
   display: flex;
@@ -2084,6 +2086,8 @@ body.dark {
   width: 100%;
   max-width: 480px;
   height: min(78vh, 680px);
+  height: min(78dvh, 680px);
+  max-height: 100%; /* nunca más alto que el overlay visible, aunque el teclado achique la pantalla */
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -2127,6 +2131,7 @@ body.dark {
 
 .chat-messages {
   flex: 1 1 auto;
+  min-height: 0; /* clave para que el flex-child se achique y no empuje el input fuera de la pantalla */
   overflow-y: auto;
   padding: 14px 16px;
   display: flex;
