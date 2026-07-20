@@ -28,20 +28,6 @@ App web instalable (PWA) para encontrar **bares, cafés, parrillas, restaurantes
 3. Tocás **"Buscar cerca mío"** → el navegador pide permiso de ubicación.
 4. La app consulta Overpass API y muestra los lugares ordenados por distancia, en lista o en mapa.
 
-## 💬 Chat 100% local
-
-Cerca tiene un cajón de chat **siempre visible** arriba del dock (el
-input y el botón de "Asistente de Cerca" nunca se ocultan; tocando el
-cajón se expande para ver la conversación). Es un asistente por reglas
-(sin IA, sin servidor, sin conexión a internet): conoce los resultados y
-favoritos que están en pantalla y responde con eso — recomienda, cuenta
-cuál está más cerca o mejor calificado, muestra tus favoritos o explica
-cómo usar la app. Si le pedís algo como **"¿qué tengo cerca?"** o
-**"buscá bares"**, ejecuta de verdad la búsqueda (la misma función que
-el botón "Buscar cerca mío") y te muestra los resultados frescos, tanto
-en el chat como en la pantalla de Inicio. Todo corre en `chat.js`, en el
-propio dispositivo. No requiere configuración ni API key.
-
 ## Estructura del proyecto
 
 ```
@@ -51,7 +37,6 @@ cerca-app/
 ├── app.js             # Lógica: geolocalización, Overpass, render
 ├── manifest.json       # Manifest PWA (nombre, íconos, colores)
 ├── sw.js               # Service worker (cache offline del shell)
-├── chat.js             # Chat 100% local por reglas (sin red, sin servidor)
 ├── icons/               # Íconos 192/512 (normal + maskable)
 └── make_icons.py        # Script que generó los íconos (opcional, no se usa en runtime)
 ```
