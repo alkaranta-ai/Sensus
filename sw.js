@@ -1,4 +1,4 @@
-const CACHE_NAME = "cerca-cache-v5";
+const CACHE_NAME = "cerca-cache-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
