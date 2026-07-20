@@ -300,6 +300,22 @@ els.chips.addEventListener("click", (e) => {
   renderCombos();
 });
 
+// Destilda todas las categorías de una: útil porque Bar/Café/Restaurante
+// vienen preseleccionados por defecto y suelen mezclarse sin querer con
+// categorías puntuales como Carnicería o Verdulería.
+const clearCatsBtn = document.getElementById("clearCatsBtn");
+if (clearCatsBtn) {
+  clearCatsBtn.addEventListener("click", () => {
+    state.selected = new Set();
+    document.querySelectorAll(".cat-card").forEach((card) => {
+      card.classList.remove("selected");
+      card.setAttribute("aria-pressed", "false");
+    });
+    renderCombos();
+    showToast("Selección limpia. Elegí las categorías que quieras buscar.");
+  });
+}
+
 // ---------- UI: dock inferior ----------
 els.dock.addEventListener("click", (e) => {
   const btn = e.target.closest(".dock-item");

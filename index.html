@@ -57,7 +57,10 @@
   <section id="view-inicio" class="app-view">
 
     <section class="controls glass-panel" aria-label="Filtros de búsqueda">
-      <h2 class="section-title">Categorías</h2>
+      <div class="section-title-row">
+        <h2 class="section-title">Categorías</h2>
+        <button type="button" class="clear-cats-btn" id="clearCatsBtn">Limpiar selección</button>
+      </div>
       <div class="category-grid" id="categoryChips" role="group" aria-label="Categorías">
         <button class="cat-card" data-cat="bar" data-color="bar" aria-pressed="false">
           <span class="cat-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 4H20L12 13V20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 20H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="cat-label">Bar</span>

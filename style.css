@@ -289,6 +289,26 @@ main {
   font-size: 0.8rem;
   color: var(--ink-dim);
 }
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0 10px;
+}
+.section-title-row .section-title { margin: 0; }
+.clear-cats-btn {
+  border: none;
+  background: none;
+  color: var(--accent, #6c5ce7);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 2px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.clear-cats-btn:hover { opacity: 0.8; }
 .panel-header {
   padding: 18px 20px;
   margin-top: 6px;
